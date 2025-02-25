@@ -33,7 +33,7 @@ const ProductFeature = sequelize.define("product_feature",{
 const ProductColor = sequelize.define("product_color",{
     id: {type: DataTypes.INTEGER, primaryKey:true, autoIncrement: true},
     color_name: {type: DataTypes.STRING},
-    color_value: {type: DataTypes.STRING},
+    color_code: {type: DataTypes.STRING},
     count: {type: DataTypes.INTEGER, defaultValue:0},
     price: {type: DataTypes.DECIMAL, defaultValue:0},
     discount: {type: DataTypes.INTEGER, defaultValue:0},

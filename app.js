@@ -44,8 +44,9 @@ class Application{
         })
 
         require('./modules/product/product.model');
+        require('./modules/user/user.model');
 
-        sequelize.sync({force:true, alter: true})
+        sequelize.sync({force:false, alter: false})
     }
 
     setDebugger(){

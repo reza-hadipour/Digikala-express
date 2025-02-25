@@ -7,7 +7,7 @@ module.exports.validation = async (req,res,next)=>{
         // throw createHttpErrors[400](req.errors.join(','));
         return sendErrorResponse(res,createHttpErrors.BadRequest(req.errors));
     }else{
-        return res.json("Stop")
+        next();
     }
 }
 
