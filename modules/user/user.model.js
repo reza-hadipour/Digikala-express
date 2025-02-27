@@ -30,11 +30,11 @@ const User = sequelize.define("User",{
     indexes: [{fields: ['id','mobile']}]
 })
 
-User.hasOne(Otp,{foreignKey: 'user_id', sourceKey: 'id', as: 'Otp'});
+User.hasOne(Otp,{foreignKey: 'user_id', sourceKey: 'id', as: 'otp'});
 Otp.belongsTo(User,{foreignKey: 'user_id', targetKey: 'id'})
 
-User.sync({alter:true});
-Otp.sync();
+// User.sync({alter:true});
+// Otp.sync({alter:true});
 
 module.exports = {
     User,

@@ -80,6 +80,10 @@ ProductFeature.belongsTo(Product,{foreignKey: 'product_id', targetKey: 'id'})
 ProductColor.belongsTo(Product,{foreignKey: 'product_id', targetKey: 'id'})
 ProductSize.belongsTo(Product,{foreignKey: 'product_id', targetKey: 'id'})
 
+// Product.sync({alter:true});
+// ProductFeature.sync({alter:true});
+// ProductColor.sync({alter:true});
+// ProductSize.sync({alter:true});
 
 module.exports = {
     Product,

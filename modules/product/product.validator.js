@@ -1,4 +1,4 @@
-const {body, checkSchema} = require('express-validator');
+const {checkSchema} = require('express-validator');
 const { PRODUCT_TYPE } = require('../../common/constants/product.const');
 
 module.exports.createProductValidator = ()=>{

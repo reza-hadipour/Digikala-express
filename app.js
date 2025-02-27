@@ -1,10 +1,12 @@
 const {join} = require('path');
+const logger = require('morgan');
 const express = require('express');
 const sequelize = require('./configs/sequelize.config');
 const autoBind = require('auto-bind').default;
-const logger = require('morgan');
 const rfs = require('rotating-file-stream');
+
 const router = require('./routes');
+const passport = require('passport');
 
 class Application{
 
@@ -13,12 +15,15 @@ class Application{
     server;
     debugHttp;
     debugDb;
+    debugRedis;
 
     constructor(){
         console.log('DEBUG is:', process.env.DEBUG);
         autoBind(this);
-        this.setDebugger()
+        this.setDebugger();
         this.setupExpress()
+        this.setupPassport();
+        this.setupRedis();
         this.setLogger()
         this.setupDatabase()
         this.setupRoutes()
@@ -35,23 +40,44 @@ class Application{
         process.on("uncaughtException",this.onError)
     }
 
+    async setupRedis(){
+        try {
+            require('./configs/redis.config');
+            this.debugRedis('Connecting to Redis...')
+            // redisClient.initialization();
+        } catch (error) {
+            this.debugRedis('Failed to setup Redis:', error)
+        }
+
+    }
+
     setupDatabase(){
         sequelize.authenticate()
-        .then(()=>this.debugDb('Connected to MySQL successfully'))
+        .then(()=> debugDb('Connected to MySQL successfully'))
         .catch(err=>{
-            this.debugDb('Connecting to database failed -> ',err.original.sqlMessage)
+            debugDb('Connecting to database failed -> ',err.original.sqlMessage)
             if(err) process.exit(1);
         })
 
-        require('./modules/product/product.model');
+        // require('./modules/product/product.model');
         require('./modules/user/user.model');
 
         sequelize.sync({force:false, alter: false})
     }
 
+    setupPassport(){
+        require('./configs/passport.config');
+        passport.initialize();
+    }
+
     setDebugger(){
         this.debugHttp = require('debug')('App');
         this.debugDb = require('debug')('Database');
+        this.debugRedis = require('debug')('Redis');
+
+        global.debugHttp = this.debugHttp;
+        global.debugDb = this.debugDb;
+        global.debugRedis = this.debugRedis;
     }
 
     setLogger(){
