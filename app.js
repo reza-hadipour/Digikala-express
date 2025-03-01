@@ -8,6 +8,10 @@ const rfs = require('rotating-file-stream');
 const router = require('./routes');
 const passport = require('passport');
 
+const { notFoundErrorHandler } = require('./common/ErrorHandlers/notFoundError.handler');
+const { allExceptionErrorHandler } = require('./common/ErrorHandlers/notExceptionError.handler');
+
+
 class Application{
 
     app;
@@ -19,6 +23,7 @@ class Application{
 
     constructor(){
         console.log('DEBUG is:', process.env.DEBUG);
+        console.log('NODE_ENV:', process.env.NODE_ENV);
         autoBind(this);
         this.setDebugger();
         this.setupExpress()
@@ -27,6 +32,7 @@ class Application{
         this.setLogger()
         this.setupDatabase()
         this.setupRoutes()
+        this.setErrorHandlers();
     }
 
     setupExpress(){
@@ -104,6 +110,11 @@ class Application{
             ? 'pipe ' + addr
             : 'port ' + this.PORT;
         this.debugHttp(`${process.env.APP_NAME} is running on ` + bind);
+    }
+
+    setErrorHandlers() {
+        this.app.use(notFoundErrorHandler)
+        this.app.use(allExceptionErrorHandler)
     }
 
     onError(error) {

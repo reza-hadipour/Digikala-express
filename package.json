@@ -4,8 +4,8 @@
   "description": "Digikala Backend using express",
   "main": "www",
   "scripts": {
-    "start": "set NODE_ENV='development' && node --watch --env-file=.env www --inspect",
-    "start2": "set NODE_ENV='development' && node --watch --env-file=.env --trace-warnings www",
+    "start": "set NODE_ENV=development&& node --watch --env-file=.env www --inspect",
+    "start2": "set NODE_ENV=development&& node --watch --env-file=.env --trace-warnings www",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

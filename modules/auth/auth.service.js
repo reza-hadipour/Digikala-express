@@ -140,6 +140,27 @@ async function checkRefresh(req,res,next) {
     
 }
 
+async function logout(req,res,next) {
+    try {
+        const {mobile} = req.user;
+        redisClient.del(`ref:${mobile}`)
+        .then(result=>{
+            
+            console.log('result',result);
+            return res.json({
+                message: 'User logged out'
+            })
+
+        }).catch(err=>{
+            debugRedis(err);
+            throw new createHttpError.InternalServerError(err)
+        })
+
+    } catch (error) {
+        next(error)
+    }
+}
+
 function generateAccessToken(userId){
     return jwt.sign({userId:userId},process.env.JWT_ACCESS_TOKEN_SECRET,{expiresIn: '1h'})
 }
@@ -152,5 +173,6 @@ function generateRefreshToken(mobile, userId){
 module.exports = {
     sendOtp,
     checkOtp,
-    checkRefresh
+    checkRefresh,
+    logout
 }
