@@ -1,6 +1,6 @@
 const createHttpError = require('http-errors');
 const { PRODUCT_TYPE } = require("../../common/constants/product.const");
-const { Product, ProductVariants, ProductFeatures, Category } = require('./product.model');
+const { Product, ProductVariants, ProductFeatures, Category, CategoryFeatures } = require('./product.model');
 const { Op, json } = require('sequelize');
 
 
@@ -8,7 +8,6 @@ async function createCategory(req,res,next) {
     try {
         const {name,description} = req.body;
 
-        console.log(name,description);
         // Check duplicate category
         const category = await Category.findOne({where: {name}});
         if(category) throw createHttpError.BadRequest("Category name is already taken");
@@ -33,13 +32,97 @@ async function getCategories(req,res,next){
 }
 
 async function createCategoryFeatures(req,res,next) {
+    try {
+        const {feature,category_id} = req.body;
+
+        const featureList = feature.map((elem)=>{
+            return {category_id , "feature_key" : elem.key}
+        })
+        
+        await CategoryFeatures.bulkCreate(featureList);
+        
+        const category = await Category.findByPk(category_id,{
+            include: {
+                model: CategoryFeatures,
+                as: "features",
+                attributes: [["feature_key","key"]],
+            }
+        });
+
+        const featureTransformed = featureTransformer(category.features)
+
+        const categoryJson = category.toJSON();
+        categoryJson.features = featureTransformed;
+        
+        return res.json(categoryJson);
+
+    } catch (error) {
+        next(error)
+    }
     
 }
 
 async function getCategoryFeatures(req,res,next) {
+    try {
+        const category_id = req.params.catId;
+        const category = await Category.findByPk(category_id,{
+            include: [
+                {
+                    model: CategoryFeatures, as: "features",
+                    attributes: [['feature_key','key']],
+                    required: false
+                }
+            ]
+        })
+
+        if(!category) throw createHttpError.NotFound('Category not found');
+
+        const featureTransformed =  featureTransformer(category.features);
+        // category.features.map((obj)=>{
+        //     return obj.dataValues['key'];
+        // })
+
+        const categoryJson = category.toJSON();
+        categoryJson.features = featureTransformed;
+        
+        return res.json(categoryJson);
+
+
+    } catch (error) {
+        next(error)
+    }
     
 }
 
+async function truncateCategoryFeatures(req,res,next) {
+    try {
+        const category_id = req.params.catId;
+
+        await CategoryFeatures.destroy({
+            where:{
+                category_id
+            }
+        })
+
+        const category = await Category.findByPk(category_id,{
+            include: [
+                {
+                    model: CategoryFeatures, as: "features",
+                    attributes: [['feature_key','key']],
+                    required: false
+                }
+            ]
+        })
+
+        if(!category) throw createHttpError.NotFound('Category not found');
+
+        return res.json(category);
+
+    } catch (error) {
+        next(error)
+    }
+    
+}
 
 async function createProduct(req, res, next) {
     try {
@@ -275,11 +358,22 @@ async function deleteProduct(req, res, next) {
     }
 }
 
+
+function featureTransformer(features){
+    const list = features.map((obj)=>{
+        return obj.dataValues['key'];
+    })
+    return list;
+}
+
 module.exports = {
     createProduct,
     getProductList,
     getProduct,
     deleteProduct,
     createCategory,
-    getCategories
+    getCategories,
+    createCategoryFeatures,
+    getCategoryFeatures,
+    truncateCategoryFeatures
 };

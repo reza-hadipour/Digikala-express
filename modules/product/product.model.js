@@ -154,7 +154,7 @@ const ProductVariants = sequelize.define('ProductVariants', {
 });
 
 // Define associations
-Category.hasMany(CategoryFeatures, { foreignKey: 'category_id' });
+Category.hasMany(CategoryFeatures, { foreignKey: 'category_id' , as: "features"});
 CategoryFeatures.belongsTo(Category, { foreignKey: 'category_id' });
 
 Category.hasMany(Product, { foreignKey: 'category_id' });
