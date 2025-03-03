@@ -88,7 +88,6 @@ module.exports.createProductValidator = ()=>{
             notEmpty:{errorMessage:"variant_type must have value"},
             custom: {
                 options: (variant,{req,location,pathValues}) => {
-                    console.log(variant);
                     if (variant === PRODUCT_TYPE.Color){
 
                         if(!req[location].variants[+pathValues]['variant_value']['color_name']){
@@ -261,3 +260,19 @@ module.exports.createProductValidator = ()=>{
 //         },
 //     })
 // }
+
+module.exports.createCategoryValidator = ()=>{
+    return checkSchema({
+        name: {
+            trim:true,
+            toLowerCase: true,
+            notEmpty: {
+                errorMessage: "Category name is mandatory"
+            }
+        },
+        description: {
+            trim: true,
+            optional: true
+        }
+    })
+}

@@ -1,11 +1,35 @@
 const createHttpError = require('http-errors');
 const { PRODUCT_TYPE } = require("../../common/constants/product.const");
-const { Product, ProductVariants, ProductFeatures } = require('./product.model');
+const { Product, ProductVariants, ProductFeatures, Category } = require('./product.model');
 const { Op, json } = require('sequelize');
 
 
 async function createCategory(req,res,next) {
-    
+    try {
+        const {name,description} = req.body;
+
+        console.log(name,description);
+        // Check duplicate category
+        const category = await Category.findOne({where: {name}});
+        if(category) throw createHttpError.BadRequest("Category name is already taken");
+
+        const newCategory = await Category.create({name,description});
+        
+        return res.json(newCategory);
+
+    } catch (error) {
+        next(error)
+    }
+}
+
+async function getCategories(req,res,next){
+    try {
+        const categories = await Category.findAll();
+        return res.json(categories);
+
+    }catch(error){
+        next(error)
+    }
 }
 
 async function createCategoryFeatures(req,res,next) {
@@ -255,5 +279,7 @@ module.exports = {
     createProduct,
     getProductList,
     getProduct,
-    deleteProduct
+    deleteProduct,
+    createCategory,
+    getCategories
 };

@@ -11,6 +11,7 @@ const Category = sequelize.define('Category', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
+    unique: true
   },
   description: {
     type: DataTypes.TEXT,
@@ -165,7 +166,7 @@ ProductVariants.belongsTo(Product, { foreignKey: 'product_id', as: 'products' })
 Product.hasMany(ProductFeatures, { foreignKey: 'product_id', as: 'features' });
 ProductFeatures.belongsTo(Product, { foreignKey: 'product_id' });
 
-// Category.sync({alter:false})
+// Category.sync({alter:true})
 // CategoryFeatures.sync({alter:false})
 // Product.sync({alter:true})
 // ProductFeatures.sync({alter:false})
