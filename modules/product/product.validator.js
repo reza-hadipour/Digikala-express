@@ -1,5 +1,6 @@
-const {checkSchema} = require('express-validator');
+const {checkSchema, check} = require('express-validator');
 const { PRODUCT_TYPE } = require('../../common/constants/product.const');
+const { Category } = require('./product.model');
 
 module.exports.createProductValidator = ()=>{
     return checkSchema({
@@ -68,7 +69,7 @@ module.exports.createProductValidator = ()=>{
                     }
                     return true
                 },
-                errorMessage: "'Each element in the features must have a non-empty string property'"
+                errorMessage: "Each element in the features must have a non-empty string property"
             }
         },
         variants: {
@@ -273,6 +274,49 @@ module.exports.createCategoryValidator = ()=>{
         description: {
             trim: true,
             optional: true
+        }
+    })
+}
+
+module.exports.createCategoryFeaturesValidator = ()=>{
+    return checkSchema({
+        feature :{
+            isArray: {
+                options:{
+                    min: 1
+                },
+                errorMessage: "feature must be an array with minimum 1 element"
+            }
+        },
+        'feature.*.key': {
+            notEmpty: {
+                errorMessage: "Each element in the features must have a non-empty string property"
+            }
+        },
+        category_id: {
+            exists:{
+                errorMessage: "category_id must exist"
+            },
+            custom: {
+                options: async (id)=>{
+                    const cat = await Category.findByPk(id);
+                    if(cat){
+                        return true
+                    }else{
+                        throw new Error("category not exist")
+                    }
+                }
+            }
+        }
+    })
+}
+
+module.exports.getCategoryIdInParamValidator = ()=>{
+    return checkSchema({
+        catId:{
+            isNumeric:{
+                errorMessage: "category_id must be a number"
+            }
         }
     })
 }
