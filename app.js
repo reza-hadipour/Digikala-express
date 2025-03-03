@@ -66,7 +66,7 @@ class Application{
         })
 
         // require('./modules/product/product.model');
-        require('./modules/user/user.model');
+        // require('./modules/user/user.model');
 
         sequelize.sync({force:false, alter: false})
     }

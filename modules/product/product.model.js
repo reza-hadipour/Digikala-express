@@ -1,93 +1,181 @@
-const { DataTypes,UUIDV4 } = require("sequelize");
-const sequelize = require("../../configs/sequelize.config");
+const { DataTypes, UUIDV4 } = require('sequelize');
+const sequelize = require('../../configs/sequelize.config');
 const { PRODUCT_TYPE } = require("../../common/constants/product.const");
 
-const Product = sequelize.define('product',{
-    // id: {type: DataTypes.INTEGER, primaryKey:true, autoIncrement: true},
-    id: {type: DataTypes.UUID, primaryKey:true, defaultValue: UUIDV4},
-    title: {type: DataTypes.STRING, allowNull: false},
-    price: {type: DataTypes.DECIMAL, allowNull: true},
-    discount: {type: DataTypes.INTEGER, defaultValue:0, allowNull:true},
-    discount_status: {type: DataTypes.BOOLEAN, defaultValue: false, allowNull: true},
-    type: {type: DataTypes.ENUM(...Object.values(PRODUCT_TYPE))},
-    count: {type: DataTypes.INTEGER, defaultValue:0},
-    description: {type: DataTypes.TEXT}
+const Category = sequelize.define('Category', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  name: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  description: {
+    type: DataTypes.TEXT,
+  },
+},{
+    timestamps: false,
+    freezeTableName: true
+});
+
+const CategoryFeatures = sequelize.define('CategoryFeatures', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  category_id: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Category,
+      key: 'id',
+    },
+  },
+  feature_key: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
 },{
     freezeTableName: true,
+    timestamps: false
+});
+
+const Product = sequelize.define('Product', {
+  id: {
+    type: DataTypes.UUID,
+    primaryKey: true,
+    defaultValue: UUIDV4()
+  },
+  title: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  description: {
+    type: DataTypes.TEXT,
+  },
+  count: {
+    type: DataTypes.INTEGER,
+    allowNull: true
+  },
+  price: {
+    type: DataTypes.INTEGER,
+  },
+  discount: {
+    type: DataTypes.INTEGER,
+  },
+  discount_status:{
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  },
+  category_id: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Category,
+      key: 'id',
+    },
+  }
+},{
     createdAt: 'created_at',
     updatedAt: 'updated_at',
-    timestamps: true
-})
-
-const ProductFeature = sequelize.define("product_feature",{
-    id: {type: DataTypes.INTEGER, primaryKey:true, autoIncrement: true},
-    key: {type: DataTypes.STRING},
-    value: {type: DataTypes.STRING},
-    product_id: {type: DataTypes.UUID}
-},{
-    freezeTableName: true,
-    timestamps: false
-})
-
-
-const ProductColor = sequelize.define("product_color",{
-    id: {type: DataTypes.INTEGER, primaryKey:true, autoIncrement: true},
-    color_name: {type: DataTypes.STRING},
-    color_code: {type: DataTypes.STRING},
-    count: {type: DataTypes.INTEGER, defaultValue:0},
-    price: {type: DataTypes.DECIMAL, defaultValue:0},
-    discount: {type: DataTypes.INTEGER, defaultValue:0},
-    discount_status: {type: DataTypes.BOOLEAN, defaultValue: false},
-    product_id: {type: DataTypes.UUID}
-},{
-    freezeTableName: true,
-    timestamps: false
-})
-
-
-const ProductSize = sequelize.define("product_size",{
-    id: {type: DataTypes.INTEGER, primaryKey:true, autoIncrement: true},
-    size: {type: DataTypes.STRING},
-    count: {type: DataTypes.INTEGER, defaultValue:0},
-    price: {type: DataTypes.DECIMAL, defaultValue:0},
-    discount: {type: DataTypes.INTEGER, defaultValue:0},
-    discount_status: {type: DataTypes.BOOLEAN, defaultValue: false},
-    product_id: {type: DataTypes.UUID}
-},{
-    freezeTableName: true,
-    timestamps: false
-})
-
-Product.hasMany(ProductFeature,{
-    as: 'features',
-    foreignKey: 'product_id',
-    sourceKey: 'id',
+    timestamps: true,
+    freezeTableName: true
 });
 
-Product.hasMany(ProductColor,{
-    as: 'colors',
-    foreignKey: 'product_id',
-    sourceKey: 'id',
+const ProductFeatures = sequelize.define('ProductFeatures', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  product_id: {
+    type: DataTypes.UUID,
+    references: {
+      model: Product,
+      key: 'id',
+    },
+  },
+  feature_key: {
+    type: DataTypes.STRING,
+  },
+  feature_value: {
+    type: DataTypes.STRING,
+  },
+},{
+  timestamps: false,
+  freezeTableName: true
 });
 
-Product.hasMany(ProductSize,{
-    as: 'sizes',
-    foreignKey: 'product_id',
-    sourceKey: 'id',
+const ProductVariants = sequelize.define('ProductVariants', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+  },
+  product_id: {
+    type: DataTypes.UUID,
+    references: {
+      model: Product,
+      key: 'id',
+    },
+  },
+  variant_type: {
+    type: DataTypes.ENUM(...Object.values(PRODUCT_TYPE)),
+    allowNull: false,
+    validate:{
+        isIn:[['color','size','color-size','other']]
+    }
+  },
+  variant_value: {
+    type: DataTypes.JSON
+  },
+  price: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  count: {
+    type: DataTypes.INTEGER,
+    allowNull: false
+  },
+  discount: {
+    type: DataTypes.INTEGER,
+  },
+  discount_status: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+  }
+},{
+  createdAt: "create_at",
+  updatedAt: "updated_at",
+  freezeTableName: true,
+  timestamps: true
 });
 
-ProductFeature.belongsTo(Product,{foreignKey: 'product_id', targetKey: 'id'})
-ProductColor.belongsTo(Product,{foreignKey: 'product_id', targetKey: 'id'})
-ProductSize.belongsTo(Product,{foreignKey: 'product_id', targetKey: 'id'})
+// Define associations
+Category.hasMany(CategoryFeatures, { foreignKey: 'category_id' });
+CategoryFeatures.belongsTo(Category, { foreignKey: 'category_id' });
 
-// Product.sync({alter:true});
-// ProductFeature.sync({alter:true});
-// ProductColor.sync({alter:true});
-// ProductSize.sync({alter:true});
+Category.hasMany(Product, { foreignKey: 'category_id' });
+Product.belongsTo(Category, { foreignKey: 'category_id' });
+
+Product.hasMany(ProductVariants, { foreignKey: 'product_id', as: 'variants'});
+ProductVariants.belongsTo(Product, { foreignKey: 'product_id', as: 'products' });
+
+Product.hasMany(ProductFeatures, { foreignKey: 'product_id', as: 'features' });
+ProductFeatures.belongsTo(Product, { foreignKey: 'product_id' });
+
+// Category.sync({alter:false})
+// CategoryFeatures.sync({alter:false})
+// Product.sync({alter:true})
+// ProductFeatures.sync({alter:false})
+// ProductVariants.sync({alter:true})
+
 
 module.exports = {
-    Product,
-    ProductFeature,
-    ProductColor,
-    ProductSize
-}
+  Category,
+  CategoryFeatures,
+  Product,
+  ProductFeatures,
+  ProductVariants,
+};
