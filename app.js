@@ -129,6 +129,7 @@ class Application{
         switch (error.code) {
           case 'EACCES':
             this.debugHttp(bind + ' requires elevated privileges');
+            this.debugHttp(error);
             process.exit(1);
             break;
           case 'EADDRINUSE':

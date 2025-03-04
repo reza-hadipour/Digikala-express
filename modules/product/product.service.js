@@ -270,8 +270,22 @@ async function createProduct(req, res, next) {
 
 async function getProductList(req, res, next) {
     try {
+
+        const {category: cat} = req.query;
+
+        let categoryFilter = {};
+
+        if(cat) categoryFilter['category_id'] = cat;
+        console.log(categoryFilter);
+
         const products = await Product.findAll({
+            where: categoryFilter,
             include: [ 
+                {
+                    model: Category,
+                    attributes: ['name'],
+                    // where: categoryFilter
+                },
                 {
                     model: ProductVariants,
                     as : 'variants',
