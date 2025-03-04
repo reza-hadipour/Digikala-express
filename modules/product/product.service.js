@@ -1,7 +1,7 @@
 const createHttpError = require('http-errors');
 const { PRODUCT_TYPE } = require("../../common/constants/product.const");
-const { Product, ProductVariants, ProductFeatures, Category, CategoryFeatures } = require('./product.model');
-const { Op } = require('sequelize');
+const { Product, ProductVariants, ProductFeatures, Category } = require('./product.model');
+const { Op} = require('sequelize');
 
 
 async function createCategory(req,res,next) {
