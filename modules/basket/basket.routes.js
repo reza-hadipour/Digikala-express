@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { addToBasket } = require('./basket.service');
+const { addProductToBasket } = require('./basket.service');
 
 // Route to add a product to the basket
-router.post('/addToBasket', addToBasket);
+router.post('/addToBasket', addProductToBasket);
 
-module.exports = router;
+module.exports = {
+    basketRouter : router
+};

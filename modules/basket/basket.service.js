@@ -1,53 +1,147 @@
 const { Basket, BasketProduct } = require('./basket.model');
-const { Product } = require('../product/product.model');
+const { Product, ProductVariants } = require('../product/product.model');
+const createHttpError = require('http-errors');
+const { Op } = require('sequelize');
 
-// Function to add a product to the basket
-const addToBasket = async (req, res) => {
-    const { userId, productId, quantity } = req.body;
-
+async function addProductToBasket (req,res,next){
     try {
-        // Check if the basket exists for the user
-        let basket = await Basket.findOne({ where: { user_id: userId } });
+        console.log("Hello");
+        const userId = req.user.id
+        console.log(userId);
 
-        // If no basket exists, create a new one
-        if (!basket) {
-            basket = await Basket.create({ user_id: userId });
-        }
+        const {productId,variantId = undefined, quantity = 1} = req.body;
 
-        // Check if the product already exists in the basket
-        let basketProduct = await BasketProduct.findOne({
-            where: {
-                basket_id: basket.id,
-                product_id: productId
-            }
-        });
+        // Check basket
+        let basket = await Basket.findOne({where:{"user_id": userId}});
 
-        if (basketProduct) {
-            // If the product exists, update the quantity
-            basketProduct.quantity += quantity;
-            await basketProduct.save();
-        } else {
-            // If the product does not exist, create a new entry
-            const product = await Product.findByPk(productId);
-            if (!product) {
-                return res.status(404).json({ message: 'Product not found' });
-            }
-
-            await BasketProduct.create({
-                basket_id: basket.id,
-                product_id: productId,
-                quantity: quantity,
-                price: product.price,
-                discount: product.discount,
-                total_price: (product.price - product.discount) * quantity
+        if(!basket){
+            basket = await Basket.create({
+                user_id: userId
             });
+            console.log('basket',basket);
         }
 
-        return res.status(200).json({ message: 'Product added to basket successfully' });
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'An error occurred while adding to the basket' });
-    }
-};
+        const basketId = basket.id
 
-module.exports = { addToBasket };
+        // Check Product and Variant exists
+        let variantFilter = {}
+        if(variantId) {
+            variantFilter['id'] = variantId;
+            // variantFilter['count'] = {[Op.gte]: quantity}
+        }
+
+        console.log(variantFilter);
+
+        const product = await Product.findOne( {where:{
+            id: productId,
+        },
+        include: variantId ? [
+            {  model: ProductVariants,
+                as: 'variants',
+                required: true,
+                where: variantFilter,
+                attributes: ['id','variant_type', 'variant_value', 'count', 'price', 'discount', 'discount_status'],
+             }
+        ] : [] });
+
+
+        if(!product) throw new createHttpError.NotFound("Product not found");
+
+        if(!variantId && !product.price)  throw new createHttpError.BadRequest("Product has variants, select one to add to basket");
+
+        
+        
+        // Check product in basket and increase the amount of the product
+
+        let productInBasketFilter = {
+            basket_id : basketId,
+            product_id : productId,
+        }
+        if(variantId) productInBasketFilter['variant_id'] = variantId;
+
+        let productInBasketData = {
+            basket_id: basketId,
+            product_id: productId,
+            variant_id: variantId,
+            discount: 0
+        };
+        
+        // Product details
+        const count = variantId ? product.variants[0].count : product.count;
+        const price = variantId ? product.variants[0].price : product.price;
+        const discount = variantId ? product.variants[0].discount : product.discount;
+        const discount_status = variantId ? product.variants[0].discount_status : product.discount_status
+
+        const productInBasket = await BasketProduct.findOne({where:productInBasketFilter})
+        if(productInBasket) {
+            // Duplicate Product
+            
+            productInBasketData = {
+                discount:0
+            };
+
+            const {quantity: quantityInBasket , price: priceInBasket, discount:discountInBasket} = productInBasket
+
+            if(count < (+quantity + quantityInBasket)) throw new createHttpError.NotAcceptable("There is not enough stock for this product");
+            
+            productInBasketData['quantity'] = +quantity + quantityInBasket
+            productInBasketData['price'] = +priceInBasket + (+price * quantity)
+            
+            if(discount_status) {
+                productInBasketData['discount'] = Number(+discountInBasket + (((price * discount) / 100) * quantity))
+            }
+                    
+            productInBasketData['total_price'] =  (productInBasketData['price'] - productInBasketData['discount'])
+
+            const result = await productInBasket.update(productInBasketData,{raw: false})
+            return res.json({
+                productInBasketData,
+                result,
+                product
+            });
+
+            
+        }else{
+            // Check count of product
+            if(count < quantity) throw new createHttpError.NotAcceptable("There is not enough stock for this product");
+    
+            productInBasketData['quantity'] = +quantity
+            productInBasketData['price'] =  price * quantity
+            
+            if(discount_status) {
+                productInBasketData['discount'] = ((price * discount) / 100) * quantity
+            }
+                    
+            productInBasketData['total_price'] =  productInBasketData['price'] - productInBasketData['discount']
+
+            await BasketProduct.create(productInBasketData);
+
+        }
+
+
+
+        // this must applied after paying
+        // if(variantId){
+        //     product.variants[0].count -= quantity; // Update the count
+        //     await product.variants[0].save(); // Save the changes
+        // }else{
+        //     product.count -= quantity; // Update the count
+        //     await product.save(); // Save the changes
+        // }
+
+
+
+        return res.json({
+            productInBasketData,
+            product
+        });
+        
+        
+    } catch (error) {
+        next(error)
+    }
+}
+
+module.exports = {
+    addProductToBasket
+}
