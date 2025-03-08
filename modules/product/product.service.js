@@ -276,7 +276,6 @@ async function getProductList(req, res, next) {
         let categoryFilter = {};
 
         if(cat) categoryFilter['category_id'] = cat;
-        console.log(categoryFilter);
 
         const products = await Product.findAll({
             where: categoryFilter,
