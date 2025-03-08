@@ -6,9 +6,7 @@ const { PRODUCT_TYPE } = require('../../common/constants/product.const');
 
 async function addProductToBasket (req,res,next){
     try {
-        console.log("Hello");
         const userId = req.user.id
-        console.log(userId);
 
         const {productId,variantId = undefined, quantity = 1} = req.body;
 
@@ -19,7 +17,6 @@ async function addProductToBasket (req,res,next){
             basket = await Basket.create({
                 user_id: userId
             });
-            console.log('basket',basket);
         }
 
         const basketId = basket.id
@@ -30,8 +27,6 @@ async function addProductToBasket (req,res,next){
             variantFilter['id'] = variantId;
             // variantFilter['count'] = {[Op.gte]: quantity}
         }
-
-        console.log(variantFilter);
 
         const product = await Product.findOne( {where:{
             id: productId,
@@ -67,9 +62,9 @@ async function addProductToBasket (req,res,next){
         
         // Product details
         const count = variantId ? product.variants[0].count : product.count;
-        const price = variantId ? product.variants[0].price : product.price;
-        const discount = variantId ? product.variants[0].discount : product.discount;
-        const discount_status = variantId ? product.variants[0].discount_status : product.discount_status
+        // const price = variantId ? product.variants[0].price : product.price;
+        // const discount = variantId ? product.variants[0].discount : product.discount;
+        // const discount_status = variantId ? product.variants[0].discount_status : product.discount_status
 
         const productInBasket = await BasketProduct.findOne({where:productInBasketFilter})
         if(productInBasket) {
@@ -92,7 +87,7 @@ async function addProductToBasket (req,res,next){
                     
             // productInBasketData['total_price'] =  Number(productInBasketData['price'] - productInBasketData['discount'])
 
-            const result = await productInBasket.update({'quantity': productInBasketData['quantity']},{raw: false})
+            await productInBasket.update({'quantity': productInBasketData['quantity']})
             // return res.json({
             //     productInBasketData,
             //     result,
@@ -157,9 +152,6 @@ async function getProductInBasket(req,res,next) {
 
         // Get Products & Variants in BasketProduct
         const basketItems = await getBasketItems(basketId);
-  
-
-
 
         return res.json(basketItems);
 
@@ -170,140 +162,226 @@ async function getProductInBasket(req,res,next) {
 }
 
 async function getBasketItems(basketId) {
-    try {
-        const basketProducts = await BasketProduct.findAll({where:{basket_id: basketId},
+        const basketProducts = await BasketProduct.findAll({
+            where:{basket_id: basketId},
             include: [
-                {
-                    model: Product,
-                },
-                {
-                    model: ProductVariants,
-                }
-            ]});
+                {model: Product},{model: ProductVariants}
+            ],
+            order: [['updatedAt','ASC']]});
 
             if(!basketProducts) {
                 return {
+                    countOfProducts: 0,
                     totalPrice: 0,
                     totalDiscount: 0,
+                    totalPriceAfterDiscount: 0,
                     products: []
                 }
             }
             
-    
-            
             let BasketItems = [];
-            basketProducts.forEach(async (product) => {
-                const itemDetail = {
-                    message: ""
+
+            let total_price = 0;
+            let total_discount = 0;
+            let total_price_after_discount = 0;
+
+            for (const productInBasket of basketProducts) {
+                const productDetail = {
+                    message: "",
+                    removedFromBasket: false
                 };
+
+                let quantity = productInBasket.quantity;
+                let productPrice = 0;
+                let productDiscount = 0;
+                let productDiscountStatus = false;
+
                 // Check product count in stock
-
                 // if quantity is more than stock then set quantity to stock
-                if(product.ProductVariant){
+
+                if(productInBasket.ProductVariant){
                     //Variants
-                    if(product.quantity > product.ProductVariant.count){
-                        // Calculate basket total_price, price and discount again
-                        const pCount = Number(product.ProductVariant.count)
-                        const pPrice = Number(product.ProductVariant.price)
-                        const pDiscount = Number(product.ProductVariant.discount)
-                        const pDiscountStatus = product.ProductVariant.discount_status
-
-                        product.quantity = pCount;
-                        product.price = pCount * pPrice
-                        product.discount = 0;
-
-                        if(pDiscountStatus) {
-                            product.discount = ((pPrice * pDiscount) / 100) * pCount
-                        }                                
-
-                        product.total_price =  Number(product.price - product.discount)
-            
-                        await product.save();
-                        itemDetail.quantity = pCount;
-                        itemDetail.message = `Quantity of this product is changed to ${pCount}` ;
+                    if(productInBasket.quantity > productInBasket.ProductVariant.count && productInBasket.ProductVariant.count != 0){
+                        quantity = productInBasket.quantity = productInBasket.ProductVariant.count;
+                        await productInBasket.save();
+                        productDetail['message'] = `Quantity of this product is changed to ${quantity}` ;
+                    } else if( productInBasket.ProductVariant.count == 0){
+                        // if productInBasket count is 0 then remove from basketProduct
+                        await productInBasket.destroy();
+                        productDetail['removedFromBasket'] = true
+                        productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
                     }
+
+                    // Get Variant price, discount and discountStatus
+                    productPrice = Number(productInBasket.ProductVariant.price)
+                    productDiscount = Number(productInBasket.ProductVariant.discount)
+                    productDiscountStatus = productInBasket.ProductVariant.discount_status
+
                 }else{
                     // Single Product
-                    if(product.quantity > product.Product.count){
-                        // Calculate basket total_price, price and discount again
-                        const pCount = Number(product.Product.count)
-                        const pPrice = Number(product.Product.price)
-                        const pDiscount = Number(product.Product.discount)
-                        const pDiscountStatus = product.Product.discount_status
-
-                        product.quantity = pCount;
-                        product.price = pCount * pPrice
-                        product.discount = 0;
-
-                        if(pDiscountStatus) {
-                            product.discount = ((pPrice * pDiscount) / 100) * pCount
-                        }                                
-
-                        product.total_price =  Number(product.price - product.discount)
-            
-                        await product.save();
-                        itemDetail.quantity = pCount;
-                        itemDetail.message = `Quantity of this product is changed to ${pCount}` ;
+                    if(productInBasket.quantity > productInBasket.Product.count && productInBasket.Product.count != 0){
+                        quantity = productInBasket.quantity = productInBasket.Product.count;
+                        // productInBasket.quantity = productCount;
+                        await productInBasket.save();
+                        productDetail['message'] = `Quantity of this product is changed to ${quantity}` ;
+                    }else if( productInBasket.Product.count == 0){
+                        // if productInBasket count is 0 then remove from basketProduct
+                        await productInBasket.destroy();
+                        productDetail['removedFromBasket'] = true
+                        productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
                     }
-                }
-                // if product count is 0 then set quantity to 0 and remove from basket
 
-                
-                itemDetail.name = product.Product.title
-                console.log(product.Product.title);
+                    // Get Product price, discount and discountStatus
+                    productPrice = Number(productInBasket.Product.price)
+                    productDiscount = Number(productInBasket.Product.discount)
+                    productDiscountStatus = productInBasket.Product.discount_status
+                }
+
+                productDetail['name'] = productInBasket.Product.title
     
-                if(product.ProductVariant){
-                    switch (product.ProductVariant.variant_type) {
+                if(productInBasket.ProductVariant){
+                    switch (productInBasket.ProductVariant.variant_type) {
                         case PRODUCT_TYPE.Color:
-                            itemDetail.color = product.ProductVariant.variant_value.color_name
+                            productDetail['color'] = productInBasket.ProductVariant.variant_value.color_name
                             break;
                         case PRODUCT_TYPE.Size:
-                            itemDetail.size = product.ProductVariant.variant_value.size
+                            productDetail['size'] = productInBasket.ProductVariant.variant_value.size
                             break;
                         case PRODUCT_TYPE.ColorSize:
-                            itemDetail.color = product.ProductVariant.variant_value.color_name
-                            itemDetail.size = product.ProductVariant.variant_value.size
+                            productDetail['color'] = productInBasket.ProductVariant.variant_value.color_name
+                            productDetail['size'] = productInBasket.ProductVariant.variant_value.size
                             break;
                         case PRODUCT_TYPE.Other:
-                            itemDetail.variantDetail = product.ProductVariant.variant_value
+                            productDetail.variantDetail = productInBasket.ProductVariant.variant_value
+                            break;
+                        default:
                             break;
                     }
                 }
     
-                itemDetail.quantity= product.quantity
-                itemDetail.price= product.price
-                itemDetail.discount= product.discount
-                itemDetail.total_price= product.total_price
-                itemDetail.existsInBasket = true    // If count is not 0 then it will be true
-    
-                BasketItems.push(itemDetail);
-            })
+                // Calculate basket total_price, price and discount again
+                let discount = 0;
+                const price = quantity * productPrice
 
-            const itemCount = BasketItems.length ?? 0;
+                if(productDiscountStatus) {
+                    discount = ((productPrice * productDiscount) / 100) * quantity
+                }                                
 
-            
-            // Calculate totalPrice and products
+                // Calculate each product summary
+                productDetail['quantity'] = quantity;
+                productDetail['price'] = productPrice
+                productDetail['totalPrice'] = price
+                productDetail['discount'] = discount
+                productDetail['totalPriceAfterDiscount'] =  Number(price - discount)
+                
+                // Calculate totalPrice of basket
+                total_price += price;
+                total_price_after_discount += productDetail['totalPriceAfterDiscount'];
+                total_discount += discount
     
-            const totalPrice = basketProducts.reduce((acc, product) => {
-                return acc + Number(product.total_price)
-            },0)
-    
-            const totalDiscount = basketProducts.reduce((acc, product)=>{
-                return acc + Number(product.discount);
-            },0)
-    
+                BasketItems.push(productDetail);
+            }
+            //  END basketProducts
 
             return {
-                count: itemCount,
-                totalPrice,
-                totalDiscount,
+                countOfProducts: BasketItems.length ?? 0,
+                totalPrice: total_price,
+                totalDiscount: total_discount,
+                totalPriceAfterDiscount: total_price_after_discount,
                 products: BasketItems
             }
-
-    } catch (error) {
-        next(error)
-    }
 }
+
+// async function checkStock(basketId){
+//     const basketProducts = await BasketProduct.findAll({
+//         where:{basket_id: basketId},
+//         include: [
+//             {model: Product},{model: ProductVariants}
+//         ]});
+
+//         if(!basketProducts) {
+//             return {
+//                 count: 0,
+//                 totalPrice: 0,
+//                 totalDiscount: 0,
+//                 products: []
+//             }
+//         }
+
+//     basketProducts.forEach(async (product) => {
+//         const itemDetail = {
+//             message: ""
+//         };
+//         // Check product count in stock
+
+//         // if quantity is more than stock then set quantity to stock
+//         if(product.ProductVariant){
+//             //Variants
+//             if(product.quantity > product.ProductVariant.count){
+//                 // Calculate basket total_price, price and discount again
+//                 const pCount = Number(product.ProductVariant.count)
+//                 product.quantity = pCount;
+//                 await product.save();
+//                 itemDetail.quantity = pCount;
+//                 itemDetail.message = `Quantity of this product is changed to ${pCount}` ;
+//             }
+//         }else{
+//             // Single Product
+//             if(product.quantity > product.Product.count){
+//                 // Calculate basket total_price, price and discount again
+//                 const pCount = Number(product.Product.count)
+//                 const pPrice = Number(product.Product.price)
+//                 const pDiscount = Number(product.Product.discount)
+//                 const pDiscountStatus = product.Product.discount_status
+
+//                 product.quantity = pCount;
+//                 product.price = pCount * pPrice
+//                 product.discount = 0;
+
+//                 if(pDiscountStatus) {
+//                     product.discount = ((pPrice * pDiscount) / 100) * pCount
+//                 }                                
+
+//                 product.total_price =  Number(product.price - product.discount)
+    
+//                 await product.save();
+//                 itemDetail.quantity = pCount;
+//                 itemDetail.message = `Quantity of this product is changed to ${pCount}` ;
+//             }
+//         }
+//         // if product count is 0 then set quantity to 0 and remove from basket
+
+        
+//         itemDetail.name = product.Product.title
+//         console.log(product.Product.title);
+
+//         if(product.ProductVariant){
+//             switch (product.ProductVariant.variant_type) {
+//                 case PRODUCT_TYPE.Color:
+//                     itemDetail.color = product.ProductVariant.variant_value.color_name
+//                     break;
+//                 case PRODUCT_TYPE.Size:
+//                     itemDetail.size = product.ProductVariant.variant_value.size
+//                     break;
+//                 case PRODUCT_TYPE.ColorSize:
+//                     itemDetail.color = product.ProductVariant.variant_value.color_name
+//                     itemDetail.size = product.ProductVariant.variant_value.size
+//                     break;
+//                 case PRODUCT_TYPE.Other:
+//                     itemDetail.variantDetail = product.ProductVariant.variant_value
+//                     break;
+//             }
+//         }
+
+//         itemDetail.quantity= product.quantity
+//         itemDetail.price= product.price
+//         itemDetail.discount= product.discount
+//         itemDetail.total_price= product.total_price
+//         itemDetail.removedFromBasket = true    // If count is not 0 then it will be true
+
+//         BasketItems.push(itemDetail);
+//     })
+// }
 
 module.exports = {
     addProductToBasket,
