@@ -69,7 +69,7 @@ class Application{
         // require('./modules/user/user.model');
         // require('./modules/basket/basket.model');
 
-        sequelize.sync({force:false, alter: false})
+        sequelize.sync({force:false, alter: true})
     }
 
     setupPassport(){

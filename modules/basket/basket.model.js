@@ -23,9 +23,9 @@ const BasketProduct = sequelize.define('basket_product', {
     product_id: { type: DataTypes.UUID, allowNull: true },
     variant_id: { type: DataTypes.INTEGER, allowNull: true },
     quantity: { type: DataTypes.INTEGER, defaultValue: 1 },
-    price: { type: DataTypes.DECIMAL, allowNull: false },
-    discount: { type: DataTypes.INTEGER, defaultValue: 0 },
-    total_price: { type: DataTypes.DECIMAL, allowNull: false },
+    // price: { type: DataTypes.DECIMAL, allowNull: false },
+    // discount: { type: DataTypes.INTEGER, defaultValue: 0 },
+    // total_price: { type: DataTypes.DECIMAL, allowNull: false },
 }, {
     freezeTableName: true,
     timestamps: true
