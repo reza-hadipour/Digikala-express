@@ -162,7 +162,7 @@ async function logout(req,res,next) {
 }
 
 function generateAccessToken(userId){
-    return jwt.sign({userId:userId},process.env.JWT_ACCESS_TOKEN_SECRET,{expiresIn: '1h'})
+    return jwt.sign({userId:userId},process.env.JWT_ACCESS_TOKEN_SECRET,{expiresIn: '1d'})
 }
 
 function generateRefreshToken(mobile, userId){
