@@ -12,7 +12,7 @@ async function addProductToBasket (req,res,next){
 
         // Check basket
         let basket = await getBasketByUserId(userId);
-        if(!basket) await createBasketByUserId(userId);
+        if(!basket) basket = await createBasketByUserId(userId);
         const basketId = basket.id
 
         // Check Product and Variant exists
@@ -82,13 +82,13 @@ async function getProductInBasket(req,res,next) {
         // Get BasketID
         const basket = await getBasketByUserId(userId);
         if(!basket) {
-            return {
+            return res.json({
                 countOfProducts: 0,
                 totalPrice: 0,
                 totalDiscount: 0,
                 totalPriceAfterDiscount: 0,
                 products: []
-            }
+            })
         }
 
         const basketId = basket?.id;
@@ -164,36 +164,46 @@ async function getBasketItems(basketId = undefined) {
 
 
 async function checkProductCount(productInBasket,  productDetail) {
-    if(productInBasket.ProductVariant){
-        //Variants
-        if(productInBasket.quantity > productInBasket.ProductVariant.count && productInBasket.ProductVariant.count != 0){
-            productInBasket.quantity = productInBasket.ProductVariant.count;
-            await productInBasket.save();
-            productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
-        } else if( productInBasket.ProductVariant.count == 0){
-            await productInBasket.destroy();
-            productDetail['removedFromBasket'] = true
-            productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
-        }
-    }else{
-        // Single Product
-        if(productInBasket.quantity > productInBasket.Product.count && productInBasket.Product.count != 0){
-            productInBasket.quantity = productInBasket.Product.count;
-            // productInBasket.quantity = productCount;
-            await productInBasket.save();
-            productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
-        }else if( productInBasket.Product.count == 0){
-            await productInBasket.destroy();
-            productDetail['removedFromBasket'] = true
-            productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
-        }
-    }
+    // if(productInBasket.ProductVariant){
+    //     //Variants
+    //     if(productInBasket.quantity > productInBasket.ProductVariant.count && productInBasket.ProductVariant.count != 0){
+    //         productInBasket.quantity = productInBasket.ProductVariant.count;
+    //         await productInBasket.save();
+    //         productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
+    //     } else if( productInBasket.ProductVariant.count == 0){
+    //         await productInBasket.destroy();
+    //         productDetail['removedFromBasket'] = true
+    //         productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
+    //     }
+    // }else{
+    //     // Single Product
+    //     if(productInBasket.quantity > productInBasket.Product.count && productInBasket.Product.count != 0){
+    //         productInBasket.quantity = productInBasket.Product.count;
+    //         await productInBasket.save();
+    //         productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
+    //     }else if( productInBasket.Product.count == 0){
+    //         await productInBasket.destroy();
+    //         productDetail['removedFromBasket'] = true
+    //         productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
+    //     }
+    // }
     
-    // Get Product price, discount and discountStatus
+    // Get Product price, discount and discountStatus if product is in stock
     const itemType = productInBasket.ProductVariant ? 'ProductVariant' : 'Product'
-    productDetail['productPrice'] = Number(productInBasket[itemType].price)
-    productDetail['productDiscount'] = Number(productInBasket[itemType].discount)
-    productDetail['productDiscountStatus'] = Number(productInBasket[itemType].discount_status)
+
+    if (productInBasket[itemType].count == 0){
+        await productInBasket.destroy();
+        productDetail['removedFromBasket'] = true
+        productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
+    } else if (productInBasket.quantity > productInBasket[itemType].count && productInBasket[itemType].count != 0){
+        productInBasket.quantity = productInBasket[itemType].count;
+        await productInBasket.save();
+        productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
+    }
+
+    productDetail['productPrice'] = productDetail['removedFromBasket'] ? 0 : Number(productInBasket[itemType].price)
+    productDetail['productDiscount'] = productDetail['removedFromBasket'] ? 0 : Number(productInBasket[itemType].discount)
+    productDetail['productDiscountStatus'] = productDetail['removedFromBasket'] ? false : productInBasket[itemType].discount_status
 
 }
 
@@ -260,5 +270,8 @@ async function findProductByPidVid(productId, variantId= undefined){
 
 module.exports = {
     addProductToBasket,
-    getProductInBasket
+    getProductInBasket,
+    getBasketByUserId,
+    getBasketItems,
+    getBasketItemByBasketId
 }
