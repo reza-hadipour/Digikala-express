@@ -29,12 +29,12 @@ const BasketProduct = sequelize.define('basket_product', {
 });
 
 // Relationships
-BasketProduct.belongsTo(Basket, { foreignKey: 'basket_id', targetKey: 'id' });
-BasketProduct.belongsTo(Product, { foreignKey: 'product_id', targetKey: 'id' });
-BasketProduct.belongsTo(ProductVariants, { foreignKey: 'variant_id', targetKey: 'id' });
+BasketProduct.belongsTo(Basket, { foreignKey: 'basket_id'});
+BasketProduct.belongsTo(Product, { foreignKey: 'product_id'});
+BasketProduct.belongsTo(ProductVariants, { foreignKey: 'variant_id'});
 
 // Basket.sync({alter: true, force: true})
-// BasketProduct.sync({force: true})
+BasketProduct.sync({force: true})
 
 
 module.exports = {

@@ -68,7 +68,7 @@ class Application{
         // require('./modules/product/product.model');
         // require('./modules/user/user.model');
         // require('./modules/basket/basket.model');
-        require('./modules/order/order.model');
+        // require('./modules/order/order.model');
         // require('./modules/payment/payment.model');
 
         sequelize.sync({force:false, alter: false})
