@@ -3,15 +3,16 @@ const sequelize = require("../../configs/sequelize.config")
 const { User } = require("../user/user.model")
 const { Payment } = require("../payment/payment.model")
 const { Product, ProductVariants } = require("../product/product.model")
+const ORDER_STATUS = require("../../common/constants/order.const")
 
 const Order = sequelize.define('Order',{
     id: {type: DataTypes.UUID, primaryKey: true, defaultValue: UUIDV4()},
     userId: {type: DataTypes.UUID, allowNull: false},
-    paymentId: {type: DataTypes.UUID, allowNull: true},
+    // paymentId: {type: DataTypes.UUID, allowNull: true},
     price: {type: DataTypes.INTEGER, defaultValue:0, allowNull: true},
     discount: {type: DataTypes.INTEGER, defaultValue:0, allowNull: true},
     amount: {type: DataTypes.INTEGER, defaultValue:0 },
-    status: {type: DataTypes.STRING, defaultValue: 'pending'},
+    status: {type: DataTypes.ENUM([...Object.values(ORDER_STATUS)]), defaultValue: ORDER_STATUS.PENDING},
 },{
     freezeTableName: true,
     timestamps: true,
@@ -37,11 +38,12 @@ OrderProduct.belongsTo(Order,{foreignKey: 'orderId', targetKey: 'id'});
 
 User.hasMany(Order,{foreignKey: 'userId',sourceKey: 'id'});
 
-OrderProduct.belongsTo(Product, { foreignKey: 'productId', targetKey: 'id' });
-OrderProduct.belongsTo(ProductVariants, { foreignKey: 'variantId', targetKey: 'id' });
+OrderProduct.hasMany(Product, { foreignKey: 'productId'});
+OrderProduct.hasMany(ProductVariants, { foreignKey: 'variantId'});
 
-// Order.hasOne(Payment,{foreignKey: 'paymentId', sourceKey: 'id'});
-Payment.belongsTo(Order,{foreignKey: 'orderId', targetKey: 'id'});
+
+Payment.belongsTo(Order,{foreignKey: 'orderId'});
+Order.hasOne(Payment,{foreignKey: 'orderId'});
 
 
 // Order.sync({alter: true});

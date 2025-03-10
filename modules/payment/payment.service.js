@@ -5,8 +5,10 @@ const { Order, OrderProduct } = require("../order/order.model");
 const ORDER_STATUS = require("../../common/constants/order.const");
 const { BasketProduct, Basket } = require("../basket/basket.model");
 const { Product, ProductVariants } = require("../product/product.model");
+const sequelize = require("../../configs/sequelize.config");
 
 async function payment(req,res,next) {
+    const t = await sequelize.transaction({logging: true});
     try {
         // Get basket of user
         const userId = req.user.id;
@@ -44,14 +46,39 @@ async function payment(req,res,next) {
             // Check payment with basketId,
             
             // if payment then destroy payment, order, orderProducts
-            let payment = await Payment.findOne({where:{basketId:basket.id}})
+            let payment = await Payment.findOne({where:{basketId:basket.id},transaction: t})
+
+            // Destroy payment,order and orderProducts
+            if(payment){
+                const orderId = payment.orderId;
+                 
+                // restore stoke quantity 
+                // Update Stock quantity before deleting orderProducts
+
+                const orderItems = await OrderProduct.findAll({where:{orderId},
+                    transaction:t,
+                    include:[
+                        {model: Product},
+                        {model: ProductVariants}
+                    ]})
+                    for (const item of orderItems) {
+                        const quantity = item.quantity;
+                        const itemType = (item.ProductVariant) ? 'ProductVariant' : 'Product';
+                        item[itemType].count += quantity;
+                        await item[itemType].save();
+                        await item.destroy();
+                    }
+                
+                await Order.destroy({where:{id: orderId}, transaction:t})
+                await payment.destroy({transaction: t});
+            }
+
             // Create Payment
-            if(!payment){
                 payment = await Payment.create({
                     authority: zarinpalRequest.data.authority,
                     amount,
                     basketId: basket.id
-                })
+                },{transaction: t})
                 // Create Order
                 const order = await Order.create({
                     userId,
@@ -60,7 +87,7 @@ async function payment(req,res,next) {
                     discount,
                     amount,
                     status: ORDER_STATUS.PENDING
-                })
+                },{transaction:t})
 
                 // add items to order
                 let orderItems = [];
@@ -74,32 +101,23 @@ async function payment(req,res,next) {
                     }
 
                     // update product / variants quantity
-                    if(item.ProductVariant){
-                        // Update variant stock
-                        item.ProductVariant.count -=  item.quantity;
-                        await item.ProductVariant.save();
-                    }else{
-                        // Update Product stock
-                        item.Product.count -=  item.quantity;
-                        await item.Product.save();
-                    }
+                    const itemType = item.ProductVariant ? 'ProductVariant' : 'Product';
+
+                    item[itemType].count -=  item.quantity;
+                    await item[itemType].save({transaction: t});
 
                     orderItems.push(orderItemData);
                 }
 
                 // I will add items to order in verify section, due if user cancel the payment, the order and payment will remove,
-                await OrderProduct.bulkCreate(orderItems)
+                await OrderProduct.bulkCreate(orderItems,{transaction:t})
 
+                // Save Payment
                 payment.orderId = order.id;
-                
-            }else{
-                // what if order and orderProduct are changed?
-                payment.authority = zarinpalRequest.data.authority;
-                payment.amount = amount;
-            }
+                await payment.save({transaction: t})
 
-            // Save Payment
-            await payment.save()
+                await t.commit();
+                
 
             // Send pay request
             const payUrl = process.env.ZARINPAL_PAY_URL + "/" + zarinpalRequest.data.authority;
@@ -114,11 +132,14 @@ async function payment(req,res,next) {
             })
         }
     } catch (error) {
+        await t.rollback()
         next(error);
     }   
 }
 
 async function verify(req,res,next) {
+    const t =  await sequelize.transaction({logging:true})
+
     try {
         const {Status = "NOK",Authority = undefined} = req.query;
         console.log(req.query);
@@ -136,8 +157,6 @@ async function verify(req,res,next) {
             // Verify payment
             // merchant_id, amount, authority
 
-            // console.log(payment);
-
             const verificationBody = {
                 merchant_id: process.env.ZARINPAL_MERCHANT_ID,
                 amount: payment.amount,
@@ -154,13 +173,20 @@ async function verify(req,res,next) {
 
             const verificationResult = await response.json();
             
-            const {code,ref_id, card_pan} =  verificationResult.data;
+            const {code,ref_id, card_pan, message, fee} =  verificationResult.data;
             console.log(verificationResult);
             
             if(code === 100 && ref_id){
-                const order = await Order.findOne({where:{paymentId: payment.id}});
+                // const order = await Order.findOne({where:{paymentId: payment.id}});
+                const order = await Order.findOne({include:{
+                    model: Payment, where: {id: payment.id}
+                }});
+
                 if(!order) throw createHttpError.NotAcceptable("Related order not found.")
-                    
+                
+                console.log(order);
+                throw createHttpError.Conflict("Order is already paid");
+                
                 const userId = order.userId;
 
                 //update order status to paid
@@ -178,6 +204,8 @@ async function verify(req,res,next) {
                 await BasketProduct.destroy({where:{basket_id: basket.id}});
                 await basket.destroy();
 
+                await t.commit();
+
                 // calculate order and orderItems
 
                 return res.json({
@@ -190,9 +218,13 @@ async function verify(req,res,next) {
             }else if(code === 101){
                 return res.json({
                     message: "This transaction is already verified",
+                    ref_id,
+                    code,
+                    fee
                 })
             }else{
                 return res.json({
+                    message,
                     errorCode: code,
                     errors: verificationResult?.errors
                 })
@@ -222,16 +254,21 @@ async function verify(req,res,next) {
                     const quantity = item.quantity;
                     const itemType = (item.ProductVariant) ? 'ProductVariant' : 'Product';
                     item[itemType].count += quantity;
-                    await item[itemType].save();
-                    await item.destroy();
+                    await item[itemType].save({transaction: t});
+                    await item.destroy({transaction: t});
                 }
             
-            await Order.destroy({where:{id: orderId}})
-            await payment.destroy();
+            await Order.destroy({where:{id: orderId},transaction: t})
+            await payment.destroy({transaction: t});
+            
+            await t.commit();
 
-            return res.json("Remove all order and payment and orderItems")
+            return res.json({
+                message: "Payment failed. Order,payment and all orderItems are removed."
+            })
         }
     } catch (error) {
+        await t.rollback();
         next(error);
     }
 }

@@ -104,12 +104,15 @@ async function getProductInBasket(req,res,next) {
 }
 
 async function getBasketItemByBasketId(basketId) {
-    return await BasketProduct.findAll({
+    const result =  await BasketProduct.findAll({
         where:{basket_id: basketId},
         include: [
             {model: Product},{model: ProductVariants}
         ],
         order: [['updatedAt','ASC']]});
+
+        console.log(result);
+        return result
 }
 
 async function getBasketItems(basketId = undefined) {
