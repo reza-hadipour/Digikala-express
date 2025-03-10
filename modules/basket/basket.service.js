@@ -12,7 +12,7 @@ async function addProductToBasket (req,res,next){
 
         // Check basket
         let basket = await getBasketByUserId(userId);
-        if(!basket) await createBasketByUserId(userId);
+        if(!basket) basket = await createBasketByUserId(userId);
         const basketId = basket.id
 
         // Check Product and Variant exists
@@ -107,11 +107,18 @@ async function getBasketItemByBasketId(basketId) {
     return await BasketProduct.findAll({
         where:{basket_id: basketId},
         include: [
-            {model: Product, as: 'Product', attributes: ['id', 'title', 'price', 'discount', 'discount_status']},
-            {model: ProductVariants, attributes: ['id','product_id','variant_type','variant_value','price','count','discount','discount_status']}
-
+            {model: Product},
+            {model: ProductVariants},
         ],
         order: [['updatedAt','ASC']]});
+    // return await BasketProduct.findAll({
+    //     where:{basket_id: basketId},
+    //     include: [
+    //         {model: Product, as: 'Product', attributes: ['id', 'title', 'price', 'discount', 'discount_status']},
+    //         {model: ProductVariants, attributes: ['id','product_id','variant_type','variant_value','price','count','discount','discount_status']}
+
+    //     ],
+    //     order: [['updatedAt','ASC']]});
 }
 
 async function getBasketItems(basketId = undefined) {
@@ -262,5 +269,8 @@ async function findProductByPidVid(productId, variantId= undefined){
 
 module.exports = {
     addProductToBasket,
-    getProductInBasket
+    getProductInBasket,
+    getBasketByUserId,
+    getBasketItemByBasketId,
+    getBasketItems
 }

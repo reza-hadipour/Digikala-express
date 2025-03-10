@@ -1,8 +1,6 @@
 const { DataTypes, UUIDV4 } = require("sequelize")
 const sequelize = require("../../configs/sequelize.config")
 const { User } = require("../user/user.model")
-const { Payment } = require("../payment/payment.model")
-const { Product, ProductVariants } = require("../product/product.model")
 const ORDER_STATUS = require("../../common/constants/order.const")
 
 const Order = sequelize.define('Order',{
@@ -37,13 +35,6 @@ Order.hasMany(OrderProduct,{foreignKey: 'orderId', sourceKey: 'id'});
 OrderProduct.belongsTo(Order,{foreignKey: 'orderId', targetKey: 'id'});
 
 User.hasMany(Order,{foreignKey: 'userId',sourceKey: 'id'});
-
-OrderProduct.hasMany(Product, { foreignKey: 'productId'});
-OrderProduct.hasMany(ProductVariants, { foreignKey: 'variantId'});
-
-
-Payment.belongsTo(Order,{foreignKey: 'orderId'});
-Order.hasOne(Payment,{foreignKey: 'orderId'});
 
 
 // Order.sync({alter: true});

@@ -15,8 +15,6 @@ const Basket = sequelize.define('basket', {
 
 // Relationships
 Basket.belongsTo(User, { foreignKey: 'user_id', targetKey: 'id' }); // One-to-one relationship
-
-
 const BasketProduct = sequelize.define('basket_product', {
     id: { type: DataTypes.UUID, primaryKey: true, defaultValue: UUIDV4 },
     basket_id: { type: DataTypes.UUID, allowNull: true },
@@ -29,12 +27,18 @@ const BasketProduct = sequelize.define('basket_product', {
 });
 
 // Relationships
-BasketProduct.belongsTo(Basket, { foreignKey: 'basket_id'});
-BasketProduct.belongsTo(Product, { foreignKey: 'product_id'});
-BasketProduct.belongsTo(ProductVariants, { foreignKey: 'variant_id'});
+Basket.hasMany(BasketProduct,{ foreignKey: 'basket_id', sourceKey:'id' }); // One-to-many relationship
+BasketProduct.belongsTo(Basket, { foreignKey: 'basket_id', targetKey: 'id'});
+
+
+// BasketProduct.hasOne(Product, { foreignKey: 'product_id'});
+// BasketProduct.hasOne(ProductVariants, { foreignKey: 'variant_id'});
+
+// Product.belongsTo(BasketProduct,{foreignKey: 'product_id'})
+// ProductVariants.belongsTo(BasketProduct,{foreignKey: 'variant_id'})
 
 // Basket.sync({alter: true, force: true})
-BasketProduct.sync({force: true})
+// BasketProduct.sync({force: true, alter: true})
 
 
 module.exports = {

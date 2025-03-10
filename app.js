@@ -65,13 +65,14 @@ class Application{
             if(err) process.exit(1);
         })
 
-        // require('./modules/product/product.model');
-        // require('./modules/user/user.model');
-        // require('./modules/basket/basket.model');
-        // require('./modules/order/order.model');
-        // require('./modules/payment/payment.model');
+        require('./modules/product/product.model');
+        require('./modules/user/user.model');
+        require('./modules/basket/basket.model');
+        require('./modules/order/order.model');
+        require('./modules/payment/payment.model');
+        require('./common/associations');
 
-        sequelize.sync({force:false, alter: false})
+        sequelize.sync()
     }
 
     setupPassport(){

@@ -185,7 +185,6 @@ async function verify(req,res,next) {
                 if(!order) throw createHttpError.NotAcceptable("Related order not found.")
                 
                 console.log(order);
-                throw createHttpError.Conflict("Order is already paid");
                 
                 const userId = order.userId;
 
@@ -213,7 +212,8 @@ async function verify(req,res,next) {
                     message: "Order payed successfully",
                     orderId: order.id,
                     referenceId: ref_id,
-                    card_pan
+                    card_pan,
+                    fee,
                 })
             }else if(code === 101){
                 return res.json({
@@ -235,13 +235,14 @@ async function verify(req,res,next) {
             // remove payment and order if user cancel the payment
             // search Payment by authority and check status
             const payment = await Payment.findOne({where:{'authority': Authority}});
+            
+            if(!payment) throw createHttpError.NotFound("Payment not found");
+            
             if(payment.status === true){
                 return res.json({
                     message: "Payment is already verified.",
                 })
             }
-
-            if(!payment) throw createHttpError.NotFound("Payment not found");
 
             const orderId = payment.orderId;
             // restore stoke quantity 
