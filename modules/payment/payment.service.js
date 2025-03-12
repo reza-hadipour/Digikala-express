@@ -46,17 +46,17 @@ async function payment(req,res,next) {
             // Check payment with basketId,
             
             // if payment then destroy payment, order, orderProducts
-            let payment = await Payment.findOne({where:{basketId:basket.id},transaction: t})
+            let payment = await Payment.findOne({where:{'basket_id':basket.id}})
 
             // Destroy payment,order and orderProducts
             if(payment){
-                const orderId = payment.orderId;
+                const orderId = payment.order_id;
                  
                 // restore stoke quantity 
                 // Update Stock quantity before deleting orderProducts
 
-                const orderItems = await OrderProduct.findAll({where:{orderId},
-                    transaction:t,
+                const orderItems = await OrderProduct.findAll({where:{'order_id': orderId},
+                    
                     include:[
                         {model: Product},
                         {model: ProductVariants}
@@ -69,52 +69,55 @@ async function payment(req,res,next) {
                         await item.destroy();
                     }
                 
-                await Order.destroy({where:{id: orderId}, transaction:t})
-                await payment.destroy({transaction: t});
+                await Order.destroy({where:{id: orderId}})
+                await payment.destroy();
             }
 
             // Create Payment
                 payment = await Payment.create({
                     authority: zarinpalRequest.data.authority,
                     amount,
-                    basketId: basket.id
-                },{transaction: t})
+                    basket_id: basket.id
+                })
                 // Create Order
                 const order = await Order.create({
-                    userId,
-                    paymentId: payment.id,
+                    user_id: userId,
+                    payment_id: payment.id,
                     price,
                     discount,
                     amount,
                     status: ORDER_STATUS.PENDING
-                },{transaction:t})
+                })
+
 
                 // add items to order
                 let orderItems = [];
                 const basketProducts = await getBasketItemByBasketId(basket.id);
                 for (const item of basketProducts) {
                     const orderItemData = {
-                        orderId: order.id,
-                        productId: item.product_id,
-                        variantId: item.variant_id,
+                        order_id: order.id,
+                        product_id: item.product_id,
+                        variant_id: item.variant_id,
                         quantity: item.quantity
                     }
 
                     // update product / variants quantity
+                    // console.log(item.ProductVariant);
                     const itemType = item.ProductVariant ? 'ProductVariant' : 'Product';
 
                     item[itemType].count -=  item.quantity;
-                    await item[itemType].save({transaction: t});
+                    await item[itemType].save();
 
                     orderItems.push(orderItemData);
                 }
 
                 // I will add items to order in verify section, due if user cancel the payment, the order and payment will remove,
-                await OrderProduct.bulkCreate(orderItems,{transaction:t})
+                // await OrderProduct.bulkCreate(orderItems,{transaction:t})
+                await OrderProduct.bulkCreate(orderItems)
 
                 // Save Payment
-                payment.orderId = order.id;
-                await payment.save({transaction: t})
+                payment.order_id = order.id;
+                await payment.save()
 
                 await t.commit();
                 
@@ -125,6 +128,7 @@ async function payment(req,res,next) {
             return res.json({
                 "payment_url": payUrl
             })
+
         } else {
             return res.json({
                 message: "Failed to get payment url",
@@ -184,9 +188,7 @@ async function verify(req,res,next) {
 
                 if(!order) throw createHttpError.NotAcceptable("Related order not found.")
                 
-                console.log(order);
-                
-                const userId = order.userId;
+                const userId = order.user_id;
 
                 //update order status to paid
                 order.status = ORDER_STATUS.PAYED;
@@ -200,7 +202,9 @@ async function verify(req,res,next) {
 
                 // Destroy Basket and BasketProduct where basketId = basket.id
                 const basket = await Basket.findOne({where:{user_id: userId}});
-                await BasketProduct.destroy({where:{basket_id: basket.id}});
+                // await BasketProduct.destroy({where:{basket_id: basket.id}});
+                
+                // cascade delete
                 await basket.destroy();
 
                 await t.commit();
@@ -244,9 +248,9 @@ async function verify(req,res,next) {
                 })
             }
 
-            const orderId = payment.orderId;
+            const orderId = payment.order_id;
             // restore stoke quantity 
-            const orderItems = await OrderProduct.findAll({where:{orderId},
+            const orderItems = await OrderProduct.findAll({where:{'order_id': orderId},
                 include:[
                     {model: Product},
                     {model: ProductVariants}

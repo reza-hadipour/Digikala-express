@@ -4,22 +4,13 @@ const { Payment } = require("../modules/payment/payment.model");
 const { Product, ProductVariants } = require("../modules/product/product.model");
 
 
-// BasketProduct
-Product.hasMany(BasketProduct,{foreignKey:'product_id'});
-BasketProduct.belongsTo(Product,{foreignKey:'product_id',targetKey:'id'})
-
-ProductVariants.hasMany(BasketProduct,{foreignKey:'variant_id'});
-BasketProduct.belongsTo(ProductVariants,{foreignKey:'variant_id',targetKey:'id'})
-
-
 // OrderProduct
-Product.hasMany(OrderProduct,{foreignKey: 'productId'})
-OrderProduct.belongsTo(Product, { foreignKey: 'productId'});
+// Product.hasMany(OrderProduct,{foreignKey: 'product_id'})
+// OrderProduct.belongsTo(Product, { foreignKey: 'product_id'});
 
-ProductVariants.hasMany(OrderProduct,{ foreignKey: 'variantId'})
-OrderProduct.belongsTo(ProductVariants, { foreignKey: 'variantId'});
+// ProductVariants.hasMany(OrderProduct,{ foreignKey: 'variant_id'})
+// OrderProduct.belongsTo(ProductVariants, { foreignKey: 'variant_id'});
 
-Order.hasOne(Payment,{foreignKey: 'orderId', sourceKey:'id'});
 
 
 // BasketProduct.sync({alter:true, force: false, logging:true})

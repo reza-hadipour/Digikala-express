@@ -259,9 +259,12 @@ async function createProduct(req, res, next) {
 
         }
 
+        const variant = await newProduct.getVariants()
+
         return res.json({
             message: "New Product created successfully",
-            newProduct
+            newProduct,
+            variant
         });
     } catch (error) {
         next(error);
