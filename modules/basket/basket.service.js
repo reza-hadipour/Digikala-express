@@ -2,7 +2,8 @@ const { Basket, BasketProduct } = require('./basket.model');
 const { Product, ProductVariants } = require('../product/product.model');
 const createHttpError = require('http-errors');
 const { Op } = require('sequelize');
-const { PRODUCT_TYPE } = require('../../common/constants/product.const');
+const { PRODUCT_VARIANT, PRODUCT_TYPE } = require('../../common/constants/product.const');
+const sequelize = require('../../configs/sequelize.config');
 
 
 async function addProductToBasket (req,res,next){
@@ -12,7 +13,7 @@ async function addProductToBasket (req,res,next){
 
         // Check basket
         let basket = await getBasketByUserId(userId);
-        if(!basket) await createBasketByUserId(userId);
+        if(!basket) basket = await createBasketByUserId(userId);
         const basketId = basket.id
 
         // Check Product and Variant exists
@@ -80,15 +81,15 @@ async function getProductInBasket(req,res,next) {
         const userId = req.user.id;
 
         // Get BasketID
-        const basket = await getBasketByUserId(userId);
+        const basket = await Basket.findOne({where:{"user_id": userId}});
         if(!basket) {
-            return {
+            return res.json({
                 countOfProducts: 0,
                 totalPrice: 0,
                 totalDiscount: 0,
                 totalPriceAfterDiscount: 0,
                 products: []
-            }
+            })
         }
 
         const basketId = basket?.id;
@@ -103,13 +104,27 @@ async function getProductInBasket(req,res,next) {
     }
 }
 
-async function getBasketItemByBasketId(basketId) {
-    return await BasketProduct.findAll({
-        where:{basket_id: basketId},
-        include: [
-            {model: Product},{model: ProductVariants}
-        ],
-        order: [['updatedAt','ASC']]});
+async function getBasketItemByBasketId(basketId, transaction = null) {
+    const t = await sequelize.transaction({transaction});
+    try {
+        const basketProducts = await BasketProduct.findAll({
+            where:{basket_id: basketId},
+            include: [
+                {model: Product},
+                {model: ProductVariants},
+            ],
+            order: [['updatedAt','ASC']],
+        transaction: t});
+
+        await t.commit()
+        return basketProducts;
+
+    } catch (error) {
+        await t.rollback();
+        debugDb('getBasketItemByBasketId fn rolled back due to error:', error);
+        throw new Error(error,{cause:'getBasketItemByBasketId'})
+    }
+    
 }
 
 async function getBasketItems(basketId = undefined) {
@@ -164,33 +179,19 @@ async function getBasketItems(basketId = undefined) {
 
 
 async function checkProductCount(productInBasket,  productDetail) {
-    if(productInBasket.ProductVariant){
-        //Variants
-        if(productInBasket.quantity > productInBasket.ProductVariant.count && productInBasket.ProductVariant.count != 0){
-            productInBasket.quantity = productInBasket.ProductVariant.count;
-            await productInBasket.save();
-            productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
-        } else if( productInBasket.ProductVariant.count == 0){
-            await productInBasket.destroy();
-            productDetail['removedFromBasket'] = true
-            productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
-        }
-    }else{
-        // Single Product
-        if(productInBasket.quantity > productInBasket.Product.count && productInBasket.Product.count != 0){
-            productInBasket.quantity = productInBasket.Product.count;
-            // productInBasket.quantity = productCount;
-            await productInBasket.save();
-            productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
-        }else if( productInBasket.Product.count == 0){
-            await productInBasket.destroy();
-            productDetail['removedFromBasket'] = true
-            productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
-        }
+    const itemType = productInBasket.ProductVariant ? PRODUCT_TYPE.variant : PRODUCT_TYPE.product
+
+    if(productInBasket.quantity > productInBasket[itemType].count && productInBasket[itemType].count != 0){
+        productInBasket.quantity = productInBasket[itemType].count;
+        await productInBasket.save();
+        productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
+    } else if( productInBasket[itemType].count == 0){
+        await productInBasket.destroy();
+        productDetail['removedFromBasket'] = true
+        productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
     }
     
     // Get Product price, discount and discountStatus
-    const itemType = productInBasket.ProductVariant ? 'ProductVariant' : 'Product'
     productDetail['productPrice'] = Number(productInBasket[itemType].price)
     productDetail['productDiscount'] = Number(productInBasket[itemType].discount)
     productDetail['productDiscountStatus'] = Number(productInBasket[itemType].discount_status)
@@ -206,19 +207,20 @@ function calculateProductSummary(productInBasket, productDetail) {
 
 async function handleProductVariantDetails(productInBasket, productDetail){
     if(productInBasket.ProductVariant){
-        switch (productInBasket.ProductVariant.variant_type) {
-            case PRODUCT_TYPE.Color:
-                productDetail['color'] = productInBasket.ProductVariant.variant_value.color_name
+        const variant = productInBasket.ProductVariant;
+        switch (variant.variant_type) {
+            case PRODUCT_VARIANT.Color:
+                productDetail['color'] = variant.variant_value.color_name
                 break;
-            case PRODUCT_TYPE.Size:
-                productDetail['size'] = productInBasket.ProductVariant.variant_value.size
+            case PRODUCT_VARIANT.Size:
+                productDetail['size'] = variant.variant_value.size
                 break;
-            case PRODUCT_TYPE.ColorSize:
-                productDetail['color'] = productInBasket.ProductVariant.variant_value.color_name
-                productDetail['size'] = productInBasket.ProductVariant.variant_value.size
+            case PRODUCT_VARIANT.ColorSize:
+                productDetail['color'] = variant.variant_value.color_name
+                productDetail['size'] = variant.variant_value.size
                 break;
-            case PRODUCT_TYPE.Other:
-                productDetail.variantDetail = productInBasket.ProductVariant.variant_value
+            case PRODUCT_VARIANT.Other:
+                productDetail.variantDetail = variant.variant_value
                 break;
             default:
                 break;
@@ -260,5 +262,8 @@ async function findProductByPidVid(productId, variantId= undefined){
 
 module.exports = {
     addProductToBasket,
-    getProductInBasket
+    getProductInBasket,
+    getBasketByUserId,
+    getBasketItemByBasketId,
+    getBasketItems
 }

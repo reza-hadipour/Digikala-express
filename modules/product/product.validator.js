@@ -1,5 +1,5 @@
 const {checkSchema, check} = require('express-validator');
-const { PRODUCT_TYPE } = require('../../common/constants/product.const');
+const { PRODUCT_VARIANT } = require('../../common/constants/product.const');
 const { Category } = require('./product.model');
 
 module.exports.createProductValidator = ()=>{
@@ -83,13 +83,13 @@ module.exports.createProductValidator = ()=>{
         },
         'variants.*.variant_type': {
             isIn:{
-                options:[[...Object.values(PRODUCT_TYPE)]],
+                options:[[...Object.values(PRODUCT_VARIANT)]],
                 errorMessage: "variant_type is not valid"
             },
             notEmpty:{errorMessage:"variant_type must have value"},
             custom: {
                 options: (variant,{req,location,pathValues}) => {
-                    if (variant === PRODUCT_TYPE.Color){
+                    if (variant === PRODUCT_VARIANT.Color){
 
                         if(!req[location].variants[+pathValues]['variant_value']['color_name']){
                             throw new Error("The 'color_name' field is required for color variants.")
@@ -100,13 +100,13 @@ module.exports.createProductValidator = ()=>{
                         }
                         return true;
 
-                    } else if (variant === PRODUCT_TYPE.Size){
+                    } else if (variant === PRODUCT_VARIANT.Size){
                         if(!req[location].variants[+pathValues]['variant_value']['size']){
                             throw new Error("The 'size' field is required for size variants.")
                         }
                         return true;
 
-                    } else if (variant === PRODUCT_TYPE.ColorSize){
+                    } else if (variant === PRODUCT_VARIANT.ColorSize){
 
                         if(!req[location].variants[+pathValues]['variant_value']['color_name']){
                             throw new Error("The 'color_name' field is required for color-size variants.")
@@ -144,7 +144,7 @@ module.exports.createProductValidator = ()=>{
     })
 }
 // const {checkSchema} = require('express-validator');
-// const { PRODUCT_TYPE } = require('../../common/constants/product.const');
+// const { PRODUCT_VARIANT } = require('../../common/constants/product.const');
 
 // module.exports.createProductValidator = ()=>{
 //     return checkSchema({
@@ -164,7 +164,7 @@ module.exports.createProductValidator = ()=>{
 //                 errorMessage: "Type is empty"
 //             },
 //             isIn:{
-//                 options:[[...Object.values(PRODUCT_TYPE)]],
+//                 options:[[...Object.values(PRODUCT_VARIANT)]],
 //                 errorMessage: "Type is not valid"}
 //         },
 //         price:{
