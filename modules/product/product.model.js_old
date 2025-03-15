@@ -1,6 +1,6 @@
 // const { DataTypes,UUIDV4 } = require("sequelize");
 // const sequelize = require("../../configs/sequelize.config");
-// const { PRODUCT_TYPE } = require("../../common/constants/product.const");
+// const { PRODUCT_VARIANT } = require("../../common/constants/product.const");
 
 // const Product = sequelize.define('product',{
 //     // id: {type: DataTypes.INTEGER, primaryKey:true, autoIncrement: true},
@@ -9,7 +9,7 @@
 //     price: {type: DataTypes.DECIMAL, allowNull: true},
 //     discount: {type: DataTypes.INTEGER, defaultValue:0, allowNull:true},
 //     discount_status: {type: DataTypes.BOOLEAN, defaultValue: false, allowNull: true},
-//     type: {type: DataTypes.ENUM(...Object.values(PRODUCT_TYPE))},
+//     type: {type: DataTypes.ENUM(...Object.values(PRODUCT_VARIANT))},
 //     count: {type: DataTypes.INTEGER, defaultValue:0},
 //     description: {type: DataTypes.TEXT}
 // },{
