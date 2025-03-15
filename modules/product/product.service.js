@@ -1,7 +1,9 @@
 const createHttpError = require('http-errors');
-const { PRODUCT_TYPE } = require("../../common/constants/product.const");
+const { PRODUCT_VARIANT } = require("../../common/constants/product.const");
 const { Product, ProductVariants, ProductFeatures, Category, CategoryFeatures } = require('./product.model');
 const { Op} = require('sequelize');
+const { BasketProduct, Basket } = require('../basket/basket.model');
+const { User } = require('../user/user.model');
 
 
 async function createCategory(req,res,next) {
@@ -193,7 +195,7 @@ async function createProduct(req, res, next) {
             let variantsList = [];
             // console.log('In Variants',variantType);
 
-            if(variantType === PRODUCT_TYPE.Color){
+            if(variantType === PRODUCT_VARIANT.Color){
                 // **** check v.variant_value.color_name in validator
                 for (const v of variants) {
                     // Handle color variants
@@ -211,7 +213,7 @@ async function createProduct(req, res, next) {
                     });
                 }
     
-            }else if (variantType === PRODUCT_TYPE.Size){
+            }else if (variantType === PRODUCT_VARIANT.Size){
 
                 // **** check v.variant_value.size in validator
                 for (const v of variants) {
@@ -228,7 +230,7 @@ async function createProduct(req, res, next) {
                         product_id: newProduct.id
                     });
                 }    
-            }else if (variantType === PRODUCT_TYPE.ColorSize){
+            }else if (variantType === PRODUCT_VARIANT.ColorSize){
                 
                 // **** check v.variant_value.color_name variant_value.color_code variant_value.size in validator
                 for (const v of variants) {
@@ -337,6 +339,18 @@ async function getProduct(req, res, next) {
                     where: productFilter,
                     required: true,
                     attributes: ['variant_type', 'variant_value', 'count', 'price', 'discount', 'discount_status'],
+                 },{
+                    model: BasketProduct,
+                    include:[
+                        {
+                            model: Basket,
+                            include: [
+                                {
+                                    model: User
+                                }
+                            ]
+                        }
+                    ]
                  }
             ],
             order: [['title','ASC'],[{model: ProductVariants, as: 'variants'},'price','DESC']]

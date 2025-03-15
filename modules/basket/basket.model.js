@@ -32,41 +32,19 @@ const BasketProduct = sequelize.define('BasketProduct', {
 });
 
 // Relationships
+Basket.belongsTo(User, { foreignKey: 'user_id', targetKey: 'id' });
+
 Basket.hasMany(BasketProduct,{ foreignKey: 'basket_id', sourceKey:'id', onDelete:'CASCADE' });
 BasketProduct.belongsTo(Basket, { foreignKey: 'basket_id', targetKey: 'id'});
 
-
-Basket.belongsTo(User, { foreignKey: 'user_id', targetKey: 'id' });
-
-
-
-// BasketProduct
 Product.hasMany(BasketProduct,{foreignKey:'product_id', onDelete: 'CASCADE'});
-// BasketProduct.belongsTo(Product,{foreignKey:'product_id',targetKey:'id'})
 BasketProduct.belongsTo(Product,{foreignKey: 'product_id', targetKey:'id'});
 
 ProductVariants.hasMany(BasketProduct,{foreignKey:'variant_id', onDelete: 'CASCADE'});
 BasketProduct.belongsTo(ProductVariants,{foreignKey: 'variant_id', targetKey:'id'});
-// BasketProduct.belongsTo(ProductVariants,{foreignKey:'variant_id',targetKey:'id'})
-
-// Basket.belongsToMany(Product,{through: BasketProduct, foreignKey: 'basket_id', otherKey:'product_id'});
-// Product.belongsToMany(Basket,{through: BasketProduct, foreignKey: 'product_id', otherKey: 'basket_id'})
-
-
-
-// Product.belongsToMany(Basket,{through: BasketProduct , foreignKey:'product_id'})
-// Basket.hasMany(BasketProduct, {foreignKey: 'basket_id',sourceKey:'id'});
-// BasketProduct.belongsTo(Basket,{foreignKey: 'basket_id',targetKey: 'id'});
-
-// ProductVariants.belongsToMany(Basket,{through: BasketProduct, foreignKey:'variant_id', otherKey:'basket_id'})
-// Basket.belongsToMany(ProductVariants,{through: BasketProduct, foreignKey: 'basket_id', otherKey:'variant_id'});
-
-// BasketProduct.belongsTo(Basket,{foreignKey: 'basket_id'});
-
 
 // Basket.sync({alter: true, force: true})
 // BasketProduct.sync({force: true, alter: true})
-
 
 module.exports = {
     Basket,

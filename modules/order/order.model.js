@@ -37,51 +37,18 @@ const OrderProduct = sequelize.define('OrderProduct', {
         ]
     });
 
-
-   
-// Order.hasMany(OrderProduct,{foreignKey: 'order_id', sourceKey: 'id'});
-// OrderProduct.belongsTo(Order,{foreignKey: 'order_id', targetKey: 'id'});
-
+// Define the relationships
 User.hasMany(Order,{foreignKey: 'user_id',sourceKey: 'id'});
 
-
-Order.hasOne(Payment,{foreignKey: 'order_id', sourceKey:'id'});
+Order.hasOne(Payment,{foreignKey: 'order_id', sourceKey:'id', onDelete: 'CASCADE'});
 Payment.belongsTo(Order,{foreignKey:'order_id'})
-
-
-// OrderProduct
-// Product.hasMany(OrderProduct,{foreignKey: 'product_id'})
-// OrderProduct.belongsToMany(Product, { foreignKey: 'product_id'});
-
-// ProductVariants.hasMany(OrderProduct,{ foreignKey: 'variant_id'})
-// OrderProduct.belongsToMany(ProductVariants, { foreignKey: 'variant_id'});
-
-
-// AI
-
-// Define the relationships
-// Order.belongsToMany(Product, { through: OrderProduct, foreignKey: 'order_id', otherKey:'product_id'});
-// Product.belongsToMany(Order, { through: OrderProduct, foreignKey: 'product_id', otherKey:'order_id' });
-
-// Order.belongsToMany(ProductVariants, { through: OrderProduct, foreignKey: 'order_id', otherKey: 'variant_id' });
-// ProductVariants.belongsToMany(Order, { through: OrderProduct, foreignKey: 'variant_id', otherKey: 'order_id' });
 
 Order.hasMany(OrderProduct, { foreignKey: 'order_id' });
 OrderProduct.belongsTo(Order, { foreignKey: 'order_id' });
 
-// Product.hasMany(OrderProduct, { foreignKey: 'product_id' });
 OrderProduct.belongsTo(Product, { foreignKey: 'product_id' });
-
-// ProductVariants.hasMany(OrderProduct, { foreignKey: 'variant_id' });
 OrderProduct.belongsTo(ProductVariants, { foreignKey: 'variant_id' });
 
-
-
-// Product.belongsToMany(Order,{through: OrderProduct, foreignKey: 'product_id',otherKey: 'order_id'})
-// Order.belongsToMany(Product,{ through: OrderProduct, foreignKey: 'order_id', otherKey: 'product_id'})
-
-// ProductVariants.belongsToMany(Order, {through: OrderProduct, foreignKey: 'variant_id', otherKey: 'order_id'})
-// Order.belongsToMany(ProductVariants,{ through: OrderProduct, foreignKey: 'order_id', otherKey: 'variant_id'})
 
 // Order.sync({alter: true, force: true});
 // OrderProduct.sync({alter: true, force: true});

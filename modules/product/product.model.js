@@ -1,6 +1,6 @@
 const { DataTypes, UUIDV4 } = require('sequelize');
 const sequelize = require('../../configs/sequelize.config');
-const { PRODUCT_TYPE } = require("../../common/constants/product.const");
+const { PRODUCT_VARIANT } = require("../../common/constants/product.const");
 
 const Category = sequelize.define('Category', {
   id: {
@@ -119,7 +119,7 @@ const ProductVariants = sequelize.define('ProductVariants', {
     },
   },
   variant_type: {
-    type: DataTypes.ENUM(...Object.values(PRODUCT_TYPE)),
+    type: DataTypes.ENUM(...Object.values(PRODUCT_VARIANT)),
     allowNull: false,
     validate:{
         isIn:[['color','size','color-size','other']]
