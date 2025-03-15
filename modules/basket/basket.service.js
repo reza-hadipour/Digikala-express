@@ -6,83 +6,142 @@ const { PRODUCT_VARIANT, PRODUCT_TYPE } = require('../../common/constants/produc
 const sequelize = require('../../configs/sequelize.config');
 
 
-async function addProductToBasket (req,res,next){
+async function addProductToBasket(req, res, next) {
+    const t = await sequelize.transaction();
     try {
         const userId = req.user.id
-        const {productId, variantId = undefined, quantity = 1} = req.body;
-
-        // Check basket
-        let basket = await getBasketByUserId(userId);
-        if(!basket) basket = await createBasketByUserId(userId);
-        const basketId = basket.id
+        const { productId, variantId = undefined, quantity = 1 } = req.body;
 
         // Check Product and Variant exists
-        const product = await findProductByPidVid(productId,variantId);
-        if(!product) throw new createHttpError.NotFound("Product not found");
+        const product = await findProductByPidVid({ productId, variantId }, t);
+        if (!product) throw new createHttpError.NotFound("Product not found");
+        if (!variantId && !product.price) throw new createHttpError.BadRequest("Product has variants, select one to add to basket");
 
-        if(!variantId && !product.price)  throw new createHttpError.BadRequest("Product has variants, select one to add to basket");
+        // Check basket
+        let basket = await getBasketByUserId(userId, t);
+        if (!basket) basket = await createBasketByUserId(userId, t);
+        const basketId = basket.id
 
         // Check product in basket and increase the amount of the product
         let productInBasketFilter = {
-            basket_id : basketId,
-            product_id : productId,
+            basket_id: basketId,
+            product_id: productId
         }
 
-        if(variantId) productInBasketFilter['variant_id'] = variantId;
+        if (variantId) productInBasketFilter['variant_id'] = variantId;
 
         // Product details
         const count = variantId ? product.variants[0].count : product.count;
-        
+
         let productInBasketData = {
             basket_id: basketId,
             product_id: productId,
             variant_id: variantId,
         };
 
-        const productInBasket = await BasketProduct.findOne({where:productInBasketFilter})
-        if(productInBasket) {
+        const productInBasket = await BasketProduct.findOne({ where: productInBasketFilter, transaction: t })
+        if (productInBasket) {
             // Duplicate Product
-            const {quantity: quantityInBasket } = productInBasket
-            if(count < (+quantity + quantityInBasket)) throw new createHttpError.NotAcceptable("There is not enough stock for this product");
-            
-            if((+quantity + quantityInBasket) < 1) {
-                await productInBasket.destroy();
-                return res.json({
-                    message: "Product removed from  basket"
-                })
-            }
+            const { quantity: quantityInBasket } = productInBasket
+            const newQuantity = +quantity + quantityInBasket;
 
-            productInBasketData['quantity'] = +quantity + quantityInBasket
-            await productInBasket.update({'quantity': productInBasketData['quantity']})
-        }else{
+            if (count < newQuantity) throw new createHttpError.NotAcceptable("There is not enough stock for this product");
+
+            productInBasket.quantity = newQuantity;
+            await productInBasket.save({transaction: t});
+            // await productInBasket.update({'quantity': productInBasketData['quantity']})
+        } else {
             // Check count of product
-            if(count < quantity) throw new createHttpError.NotAcceptable("There is not enough stock for this product");
-            // CHeck if quantity was lower than 1
-            if(quantity < 1) throw new createHttpError.NotAcceptable("Quantity of product can not be negative number");
-            
+            if (count < quantity) throw new createHttpError.NotAcceptable("There is not enough stock for this product");
+
             productInBasketData['quantity'] = +quantity
-            await BasketProduct.create(productInBasketData);
+            await BasketProduct.create(productInBasketData, { transaction: t });
         }
+
+        const cart = await getBasketItems(basketId, t);
+
+        await t.commit();
 
         return res.json({
             message: "Product added to basket successfully",
-            productInBasketData,
-            product
+            product,
+            cart
         });
-        
+
+    } catch (error) {
+        await t.rollback();
+        debugDb('addProductToBasket fn rolled back due to error:', error);
+        next(error)
+    }
+}
+
+async function removeProductFromBasket(req, res, next) {
+    try {
+        const userId = req.user.id
+        const { productId = undefined, variantId = undefined, quantity = 1 } = req.body;
+
+        if (!productId && !variantId) throw new createHttpError.BadRequest("You must provide product id or variant id");
+
+        // Check basket
+        let basket = await getBasketByUserId(userId);
+        if (!basket) throw new createHttpError.NotFound("Your basket is empty.");
+
+        const basketId = basket.id
+
+        // Check Product and Variant exists
+        const product = await findProductByPidVid({ productId, variantId });
+        if (!product) throw new createHttpError.NotFound("Product not found");
+
+        if (!variantId && !product.price) throw new createHttpError.BadRequest("Product has variants, select the one you want to remove from basket");
+
+        // Check product in basket and decrease the quantity of the product in basket
+        let productInBasketFilter = {
+            basket_id: basketId,
+        }
+
+        if (productId) productInBasketFilter['product_id'] = productId;
+        if (variantId) productInBasketFilter['variant_id'] = variantId;
+
+        const productInBasket = await BasketProduct.findOne({ where: productInBasketFilter })
+
+        if (productInBasket) {
+            const { quantity: quantityInBasket } = productInBasket
+            const updatedQuantity = quantityInBasket - quantity;
+            let message;
+
+            if (updatedQuantity < 1) {
+                await productInBasket.destroy();
+                message = `${product?.title} removed from basket`
+            } else {
+                productInBasket.quantity = updatedQuantity
+                await productInBasket.save();
+                message = `${product?.title} quantity updated to ${updatedQuantity}`
+            }
+
+            const cart = await getBasketItems(basketId);
+
+            return res.json({
+                message,
+                cart
+            })
+
+        } else {
+            throw new createHttpError.NotFound("Product not found in basket");
+        }
+
     } catch (error) {
         next(error)
     }
 }
 
-async function getProductInBasket(req,res,next) {
+async function getProductInBasket(req, res, next) {
     try {
         // Get userid
         const userId = req.user.id;
 
         // Get BasketID
-        const basket = await Basket.findOne({where:{"user_id": userId}});
-        if(!basket) {
+        const basket = await Basket.findOne({ where: { "user_id": userId } });
+        if (!basket) {
             return res.json({
                 countOfProducts: 0,
                 totalPrice: 0,
@@ -98,23 +157,24 @@ async function getProductInBasket(req,res,next) {
         const basketItems = await getBasketItems(basketId);
 
         return res.json(basketItems);
-        
+
     } catch (error) {
         next(error)
     }
 }
 
 async function getBasketItemByBasketId(basketId, transaction = null) {
-    const t = await sequelize.transaction({transaction});
+    const t = await sequelize.transaction({ transaction });
     try {
         const basketProducts = await BasketProduct.findAll({
-            where:{basket_id: basketId},
+            where: { basket_id: basketId },
             include: [
-                {model: Product},
-                {model: ProductVariants},
+                { model: Product },
+                { model: ProductVariants },
             ],
-            order: [['updatedAt','ASC']],
-        transaction: t});
+            order: [['updatedAt', 'ASC']],
+            transaction: t
+        });
 
         await t.commit()
         return basketProducts;
@@ -122,15 +182,17 @@ async function getBasketItemByBasketId(basketId, transaction = null) {
     } catch (error) {
         await t.rollback();
         debugDb('getBasketItemByBasketId fn rolled back due to error:', error);
-        throw new Error(error,{cause:'getBasketItemByBasketId'})
+        throw new Error(error, { cause: 'getBasketItemByBasketId' })
     }
-    
+
 }
 
-async function getBasketItems(basketId = undefined) {
-        const basketProducts = await getBasketItemByBasketId(basketId);
+async function getBasketItems(basketId = undefined, transaction = null) {
+    const t = await sequelize.transaction({ transaction });
+    try {
+        const basketProducts = await getBasketItemByBasketId(basketId, t);
 
-        if(!basketProducts) {
+        if (!basketProducts) {
             return {
                 countOfProducts: 0,
                 totalPrice: 0,
@@ -139,14 +201,13 @@ async function getBasketItems(basketId = undefined) {
                 products: []
             }
         }
-            
+
         let BasketItems = [];
         let total_price = 0;
         let total_discount = 0;
         let total_price_after_discount = 0;
 
         for (const productInBasket of basketProducts) {
-
             const productDetail = {
                 message: "",
                 removedFromBasket: false,
@@ -166,35 +227,40 @@ async function getBasketItems(basketId = undefined) {
 
             BasketItems.push(productDetail);
         }
-            //  END basketProducts
 
-            return {
-                countOfProducts: BasketItems.length ?? 0,
-                totalPrice: total_price,
-                totalDiscount: total_discount,
-                totalPriceAfterDiscount: total_price_after_discount,
-                products: BasketItems
-            }
+        await t.commit();
+        return {
+            countOfProducts: BasketItems.length ?? 0,
+            totalPrice: total_price,
+            totalDiscount: total_discount,
+            totalPriceAfterDiscount: total_price_after_discount,
+            products: BasketItems
+        }
+    } catch (error) {
+        await t.rollback();
+        debugDb('getBasketItems fn rolled back due to error:', error);
+        throw new Error(error, { cause: 'getBasketItems' })
+    }
 }
 
 
-async function checkProductCount(productInBasket,  productDetail) {
+async function checkProductCount(productInBasket, productDetail) {
     const itemType = productInBasket.ProductVariant ? PRODUCT_TYPE.variant : PRODUCT_TYPE.product
 
-    if(productInBasket.quantity > productInBasket[itemType].count && productInBasket[itemType].count != 0){
+    if (productInBasket.quantity > productInBasket[itemType].count && productInBasket[itemType].count != 0) {
         productInBasket.quantity = productInBasket[itemType].count;
         await productInBasket.save();
-        productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}` ;
-    } else if( productInBasket[itemType].count == 0){
+        productDetail['message'] = `Quantity of this product is changed to ${productInBasket.quantity}`;
+    } else if (productInBasket[itemType].count == 0) {
         await productInBasket.destroy();
         productDetail['removedFromBasket'] = true
-        productDetail['message'] = `This product is removed from basket, there is no product in store.` ;
+        productDetail['message'] = `This product is removed from basket, there is no product in store.`;
     }
-    
+
     // Get Product price, discount and discountStatus
     productDetail['productPrice'] = Number(productInBasket[itemType].price)
     productDetail['productDiscount'] = Number(productInBasket[itemType].discount)
-    productDetail['productDiscountStatus'] = Number(productInBasket[itemType].discount_status)
+    productDetail['productDiscountStatus'] = Boolean(productInBasket[itemType].discount_status)
 
 }
 
@@ -205,8 +271,8 @@ function calculateProductSummary(productInBasket, productDetail) {
     productDetail['totalPriceAfterDiscount'] = Number(productDetail['totalPrice'] - productDetail['discount']);
 }
 
-async function handleProductVariantDetails(productInBasket, productDetail){
-    if(productInBasket.ProductVariant){
+async function handleProductVariantDetails(productInBasket, productDetail) {
+    if (productInBasket.ProductVariant) {
         const variant = productInBasket.ProductVariant;
         switch (variant.variant_type) {
             case PRODUCT_VARIANT.Color:
@@ -229,35 +295,63 @@ async function handleProductVariantDetails(productInBasket, productDetail){
 }
 
 
-async function getBasketByUserId(userId){
-    return await Basket.findOne({where:{"user_id": userId}});
+async function getBasketByUserId(userId, transaction = null) {
+    const t = await sequelize.transaction({ transaction })
+    try {
+        const basket = await Basket.findOne({ where: { "user_id": userId }, transaction });
+        await t.commit();
+        return basket;
+    } catch (error) {
+        await t.rollback();
+        debugDb('getBasketByUserId fn rolled back due to error:', error);
+        throw new Error(error, { cause: 'getBasketByUserId' })
+    }
 }
 
-async function createBasketByUserId(userId){
-    return await Basket.create({
-        user_id: userId
-    });
+async function createBasketByUserId(userId, transaction = null) {
+    const t = await sequelize.transaction({ transaction });
+    try {
+        const newBasket = await Basket.create({
+            user_id: userId
+        });
+        await t.commit();
+        return newBasket;
+    } catch (error) {
+        await t.rollback();
+        debugDb('createBasketByUserId fn rolled back due to error:', error);
+        throw new Error(error, { cause: 'createBasketByUserId' })
+    }
+
 }
 
-async function findProductByPidVid(productId, variantId= undefined){
-    let variantFilter = {}
-        if(variantId) {
-            variantFilter['id'] = variantId;
-        }
+async function findProductByPidVid(filter, transaction = null) {
+    const t = await sequelize.transaction({ transaction });
+    try {
+        const { productId = undefined, variantId = undefined } = filter;
 
-        const product = await Product.findOne( {where:{
-            id: productId,
-        },
-        include: variantId ? [
-            {  model: ProductVariants,
-                as: 'variants',
-                required: true,
-                where: variantFilter,
-                attributes: ['id','variant_type', 'variant_value', 'count', 'price', 'discount', 'discount_status'],
-             }
-        ] : [] });
+        const whereVariantClause = variantId ? [{
+            model: ProductVariants,
+            as: 'variants',
+            required: true,
+            where: { 'id': variantId },
+            attributes: ['id', 'variant_type', 'variant_value', 'count', 'price', 'discount', 'discount_status'],
+        }] : []
 
+        const whereClause = productId ? { id: productId } : {};
+
+        const product = await Product.findOne({
+            where: whereClause,
+            include: whereVariantClause,
+            transaction: t
+        });
+
+        await t.commit();
         return product;
+    } catch (error) {
+        await t.rollback();
+        debugDb('findProductByPidVid fn rolled back due to error:', error);
+        throw new Error(error, { cause: 'findProductByPidVid' })
+    }
 }
 
 module.exports = {
@@ -265,5 +359,6 @@ module.exports = {
     getProductInBasket,
     getBasketByUserId,
     getBasketItemByBasketId,
-    getBasketItems
+    getBasketItems,
+    removeProductFromBasket,
 }
