@@ -70,7 +70,8 @@ class Application{
         // require('./modules/basket/basket.model');
         // require('./modules/order/order.model');
         // require('./modules/payment/payment.model');
-        require('./common/associations');
+        // require('./modules/RBAC/rbac.model');
+        // require('./common/associations');
 
         sequelize.sync({alter:false, force: false})
     }
