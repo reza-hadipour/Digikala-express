@@ -1,6 +1,7 @@
 const passport = require('passport');
 const {ExtractJwt, Strategy} = require('passport-jwt');
 const { User } = require('../modules/user/user.model');
+const { Role } = require('../modules/RBAC/rbac.model');
 
 let options = {
     jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -8,7 +9,12 @@ let options = {
 }
 
 passport.use('jwt',new Strategy(options,(jwt_payload,done)=>{
-    User.findOne({where:{id:jwt_payload.userId}})
+    User.findOne({
+        where:{id:jwt_payload.userId},
+        include:[
+            {model:Role},
+        ]
+    })
     .then((user)=>{
         if(user){
             return done(null,user)
