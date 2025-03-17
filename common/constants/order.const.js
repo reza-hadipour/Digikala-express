@@ -1,12 +1,13 @@
 const ORDER_STATUS = {
     PENDING: "pending",
-    SHIPPED: "shipped",
+    PAYED: "payed",
+    IN_PROCESS: "inProcess",
+    PACKET: "packet",
+    SHIPPING: "shipping",
     DELIVERED: "delivered",
     CANCELED: "canceled",
-    PAYED: "payed",
-    };
+    }
 
 Object.freeze(ORDER_STATUS)
-
 
 module.exports = ORDER_STATUS
