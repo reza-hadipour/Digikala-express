@@ -23,10 +23,6 @@ class Application{
     constructor(){
         console.log('DEBUG is:', process.env.DEBUG);
         console.log('NODE_ENV:', process.env.NODE_ENV);
-<<<<<<< HEAD
-        // autoBind(this);
-=======
->>>>>>> rbac
         this.setDebugger();
         this.setupExpress()
         this.setupPassport();
