@@ -5,6 +5,7 @@ const ORDER_STATUS = require('../../common/constants/order.const');
 const createHttpError = require('http-errors');
 const { checkUserHasRole } = require('../user/user.service');
 const { ROLES } = require('../../common/constants/rollsAndPermissions.const');
+const sequelize = require('../../configs/sequelize.config');
 
 
 async function  getOrdersHandler(req,res,next) {
@@ -78,9 +79,16 @@ async function getOrderById(orderId) {
     return order;
 }
 
-async function transitOrder(order,event) {
-    const newStatus = transition(order.status,event);
-    return await updateOrderStatus(order,newStatus)
+async function transitOrder(order,event, transaction = undefined) {
+    const t = await sequelize.transaction({transaction});
+    try {
+        const newStatus = transition(order.status,event);
+        return await updateOrderStatus(order,newStatus,t)
+    } catch (error) {
+        await t.rollback();
+        debugDb('transitOrder fn rolled back due to error:', error);
+        throw new Error(error, { cause: 'transitOrder' })
+    }
 }
 
 async function progressOrder(order) {
@@ -92,10 +100,18 @@ async function progressOrder(order) {
     return await transitOrder(order,nextState)
 }
 
-async function updateOrderStatus(order, newStatus) {
-    order.status = newStatus;
-    await order.save();
-    return order;
+async function updateOrderStatus(order, newStatus, transaction= undefined) {
+    const t = await sequelize.transaction({transaction});
+    try {
+        order.status = newStatus;
+        await order.save();
+        await t.commit();
+        return order;
+    } catch (error) {
+        await t.rollback();
+        debugDb('updateOrderStatus fn rolled back due to error:', error);
+        throw new Error(error, { cause: 'updateOrderStatus' })
+    }
   }
   
 

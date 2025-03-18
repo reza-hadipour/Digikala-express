@@ -8,6 +8,7 @@ const { Product, ProductVariants } = require("../product/product.model");
 const sequelize = require("../../configs/sequelize.config");
 const { getPaymentLink, verifyTransaction } = require("../../services/zarinpal.service");
 const { PRODUCT_TYPE } = require("../../common/constants/product.const");
+const { transitOrder } = require("../order/order.service");
 
 async function payment(req, res, next) {
     const t = await sequelize.transaction({ logging: false });
@@ -322,10 +323,11 @@ async function updateOrderStatusByPaymentId(paymentId, transaction) {
         if (!order) throw createHttpError.NotAcceptable("Related order not found.")
 
         //update order status to paid
-        order.status = ORDER_STATUS.PAYED;
-        await order.save({ transaction: t });
+        const updatedOrder =  await transitOrder(order,ORDER_STATUS.PAYED, t);
+        // order.status = ORDER_STATUS.PAYED;
+        // await order.save({ transaction: t });
         await t.commit();
-        return order;
+        return updatedOrder;
     } catch (error) {
         await t.rollback();
         debugDb('updateOrderStatusByPaymentId fn rolled back due to error:', error);
