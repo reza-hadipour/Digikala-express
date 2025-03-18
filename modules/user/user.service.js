@@ -13,7 +13,13 @@ async function checkUserExist(userId) {
     })
 } 
 
+async function checkUserHasRole(user,role) {
+    const roles = await user.getRoles();
+    const rolesName =  roles.map((role=>role.name))
+    return rolesName.includes(role) ? true: false;
+}
 
 module.exports = {
-    checkUserExist
+    checkUserExist,
+    checkUserHasRole
 }

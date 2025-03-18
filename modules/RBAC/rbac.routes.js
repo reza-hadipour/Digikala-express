@@ -1,6 +1,6 @@
 const { guard: can } = require('../../middlewares/guard.middleware');
 const { createPermission, createRole, assignPermissionToRole, showRoles, showPermissions, assignRoleToUser, removePermissionFromRole } = require('./rbac.service');
-const PERMISSIONS = require('../../common/constants/permissions.const');
+const {PERMISSIONS} = require('../../common/constants/rollsAndPermissions.const');
 const { createRolePermissionValidator, assignRemovePermissionToRoleValidator, assignRoleToUserValidator } = require('./rbac.validator');
 const { validation } = require('../../middlewares/validation.middleware');
 

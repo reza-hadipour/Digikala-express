@@ -2,7 +2,6 @@ const {join} = require('path');
 const logger = require('morgan');
 const express = require('express');
 const sequelize = require('./configs/sequelize.config');
-const autoBind = require('auto-bind').default;
 const rfs = require('rotating-file-stream');
 
 const router = require('./routes');
@@ -24,7 +23,6 @@ class Application{
     constructor(){
         console.log('DEBUG is:', process.env.DEBUG);
         console.log('NODE_ENV:', process.env.NODE_ENV);
-        autoBind(this);
         this.setDebugger();
         this.setupExpress()
         this.setupPassport();

@@ -23,10 +23,22 @@ async function createRole(req,res,next) {
 
 async function showRoles(req,res,next) {
     try {
-        const roles = await Role.findAll();
+        const roles = await Role.findAll({include: {model: Permission}});
+        const transformedRoles = roles.map(role=>{
+            const rolePermissions = role.Permissions?.map(rolePerm=>{
+                return {[rolePerm.name]: rolePerm.description}
+            });
+            
+            return {
+                id: role.id,
+                name: role.name,
+                description: role.description,
+                permissions: rolePermissions
+            }
+        })
         
         return res.json({
-            roles
+            roles: transformedRoles
         });
 
     } catch (error) {
