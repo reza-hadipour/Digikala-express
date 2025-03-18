@@ -9,14 +9,20 @@ const { checkUserHasRole } = require('../user/user.service');
 async function  getOrdersHandler(req,res,next) {
     try {
         const user = req.user;
+<<<<<<< HEAD
         
+=======
+>>>>>>> rbac
         const {status, createDate} = req.query;
 
         let whereClause = {}
         if(status) whereClause['status'] = status
         if(createDate) whereClause['created_at'] = { [Op.gt] : createDate }
 
+<<<<<<< HEAD
         
+=======
+>>>>>>> rbac
         userRole = await checkUserHasRole(user,"Customer");
         let orders = {};
 
@@ -27,11 +33,14 @@ async function  getOrdersHandler(req,res,next) {
             orders = await getOrders(whereClause);
         }
 
+<<<<<<< HEAD
         // Check user role
         // Show customer orders for him
         // Show All orders for OrderManager
 
 
+=======
+>>>>>>> rbac
         return res.json(orders)
 
     } catch (error) {
