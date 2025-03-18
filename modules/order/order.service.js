@@ -1,23 +1,36 @@
 const {getNextState,transition} =  require('../../services/fsm');
-const { Op, or } = require("sequelize");
+const { Op } = require("sequelize");
 const { Order } = require("./order.model");
 const ORDER_STATUS = require('../../common/constants/order.const');
 const createHttpError = require('http-errors');
+const { checkUserHasRole } = require('../user/user.service');
 
 
-async function  getOrders(req,res,next) {
+async function  getOrdersHandler(req,res,next) {
     try {
-        // Check user role
-        // Show customer orders for him
-        // Show All orders for OrderManager
-
+        const user = req.user;
+        
         const {status, createDate} = req.query;
 
         let whereClause = {}
         if(status) whereClause['status'] = status
         if(createDate) whereClause['created_at'] = { [Op.gt] : createDate }
 
-        const orders = await Order.findAll({where: whereClause})
+        
+        userRole = await checkUserHasRole(user,"Customer");
+        let orders = {};
+
+        if(userRole){
+            whereClause['user_id'] = req.user.id;
+            orders = await getOrders(whereClause);
+        }else{
+            orders = await getOrders(whereClause);
+        }
+
+        // Check user role
+        // Show customer orders for him
+        // Show All orders for OrderManager
+
 
         return res.json(orders)
 
@@ -26,7 +39,7 @@ async function  getOrders(req,res,next) {
     }
 }
 
-async function orderStatusPayed(req,res,next) {
+async function orderStatusPayedHandler(req,res,next) {
     try {
         const orderId = req.params.id;
         const order = await transitOrder(orderId,ORDER_STATUS.PAYED);
@@ -36,7 +49,7 @@ async function orderStatusPayed(req,res,next) {
     }
 }
 
-async function progressOrderStatus(req,res,next) {
+async function progressOrderStatusHandler(req,res,next) {
     try {
         const orderId = req.params.id;
         const order = await getOrderById(orderId)
@@ -45,6 +58,10 @@ async function progressOrderStatus(req,res,next) {
     } catch (error) {
         next(error)
     }
+}
+
+async function getOrders(filter) {
+    return await Order.findAll({where: filter})
 }
 
 async function getOrderById(orderId) {
@@ -75,7 +92,7 @@ async function updateOrderStatus(order, newStatus) {
   
 
 module.exports = {
-    getOrders,
-    orderStatusPayed,
-    progressOrderStatus
+    getOrdersHandler,
+    orderStatusPayedHandler,
+    progressOrderStatusHandler
 }

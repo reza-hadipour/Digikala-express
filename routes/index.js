@@ -12,7 +12,7 @@ router.use('/product',authenticate, productRouter)
 router.use('/cart',authenticate, basketRouter)
 router.use('/category',categoryRouter)
 router.use('/pay', payRouter)
-router.use('/order',OrderRouter)
+router.use('/order',authenticate, OrderRouter)
 
 router.use('/auth',authRouter)
 router.use('/rbac', authenticate, RbacRouter)
