@@ -36,27 +36,29 @@ async function  getOrdersHandler(req,res,next) {
     }
 }
 
-async function orderStatusPayedHandler(req,res,next) {
-    try {
-        const orderId = req.params.id;
-        const order = await getOrderById(orderId)
-        const updatedOrder = await transitOrder(order,ORDER_STATUS.PAYED);
-        return res.json({updatedOrder});
-    } catch (error) {
-        next(error)
+function orderStatusHandler(event){
+    return async (req,res,next) => {
+        try {
+            const orderId = req.params.id;
+            const order = await getOrderById(orderId)
+            const updatedOrder = await transitOrder(order, event);
+            return res.json({order: updatedOrder});
+        } catch (error) {
+            next(error)
+        }
     }
 }
 
-async function progressOrderStatusHandler(req,res,next) {
-    try {
-        const orderId = req.params.id;
-        const order = await getOrderById(orderId)
-        const updatedOrder = await progressOrder(order);
-        return res.json({order: updatedOrder});
-    } catch (error) {
-        next(error)
+async function progressOrderStatusHandler(req,res,next){
+        try {
+            const orderId = req.params.id;
+            const order = await getOrderById(orderId)
+            const updatedOrder = await progressOrder(order);
+            return res.json({order: updatedOrder});
+        } catch (error) {
+            next(error)
+        }
     }
-}
 
 async function cancelOrderStatusHandler(req,res,next) {
     try {
@@ -117,8 +119,8 @@ async function updateOrderStatus(order, newStatus, transaction= undefined) {
 
 module.exports = {
     getOrdersHandler,
-    orderStatusPayedHandler,
     progressOrderStatusHandler,
     cancelOrderStatusHandler,
-    transitOrder
+    transitOrder,
+    orderStatusHandler
 }
