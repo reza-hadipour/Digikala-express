@@ -78,12 +78,7 @@ async function assignPermissionToRole(req,res,next) {
 
         await role.addPermissions(permission.map(perm => perm.id));
 
-        const updatedPermissions = (await role.getPermissions()).map(perm=>{
-            return {
-                name: perm['name'],
-                description: perm['description']
-            }
-        })
+        const updatedPermissions = await transformPermissions(await role.getPermissions());
 
         return res.json({
             role,
@@ -105,12 +100,7 @@ async function removePermissionFromRole(req,res,next) {
 
         await role.removePermissions(permission);
 
-        const permissions = (await role.getPermissions()).map(perm=>{
-            return {
-                name: perm['name'],
-                description: perm['description']
-            }
-        })
+        const permissions = await transformPermissions(await role.getPermissions());
 
         return res.json({
             role,
@@ -130,19 +120,12 @@ async function assignRoleToUser(req,res,next) {
 
         await user.addRoles(role);
 
-        const roles = (await user.getRoles()).map(role=>{
-            return {
-                name: role['name'],
-                description: role['description']
-            }
-        })
+        const roles = await transformRoles(await user.getRoles());
 
         return res.json({
             user,
             roles
         })
-
-
     } catch (error) {
         next(error)
     }
@@ -202,6 +185,34 @@ async function checkDuplicatePermission(permissionName) {
     }
 }
 
+async function transformPermissions(permissions) {
+    try {
+        const transformedPermissions =  permissions.map(perm=>{
+            return {
+                name: perm['name'],
+                description: perm['description']
+            }
+        });
+        return transformedPermissions;
+    } catch (error) {
+        throw new Error(error,{cause: 'transformPermissions'})
+    }
+}
+
+async function transformRoles(roles) {
+    try {
+        const transformedRoles = roles.map(role=>{
+            return {
+                name: role['name'],
+                description: role['description']
+            }
+        })
+        return transformedRoles;
+    } catch (error) {
+        throw new Error(error,{cause: 'transformRoles'})
+    }
+}
+
 module.exports = {
     createRole,
     createPermission,
@@ -209,5 +220,6 @@ module.exports = {
     removePermissionFromRole,
     showPermissions,
     showRoles,
-    assignRoleToUser
+    assignRoleToUser,
+    transformRoles
 }
